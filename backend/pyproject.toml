@@ -1,0 +1,52 @@
+[project]
+name = "poshannetra-backend"
+version = "0.1.0"
+description = "PoshanNetra AI - FastAPI backend (Phase 1: data model, API skeleton, seeded data)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pyjwt>=2.10",
+    "python-multipart>=0.0.17",
+    "httpx>=0.28",
+    "pillow>=11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "openpyxl>=3.1",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# B008 flags function calls in argument defaults. In FastAPI, `Depends(...)`,
+# `File(...)`, `Form(...)` and `Query(...)` in a default IS the framework's
+# documented idiom -- it is not the mutable-default bug the rule exists to catch.
+"app/api/routes/*.py" = ["B008"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
