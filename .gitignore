@@ -14,3 +14,5 @@ backend/scripts/_who_raw/
 node_modules/
 .next/
 dist/
+dist/
+*.tsbuildinfo

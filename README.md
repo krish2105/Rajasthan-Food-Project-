@@ -4,9 +4,9 @@ AI-assisted meal monitoring for Anganwadi centres and Ashram schools in the
 Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 [`poshannetra-ai-master-prompt.md`](poshannetra-ai-master-prompt.md).
 
-> **Phases 1 and 2 of 7 are complete.** Data model and FastAPI skeleton
-> (Section 16 step 1); AI pipeline and evaluation harness (step 2). Phases 3–7
-> have not been started.
+> **Phases 1–3 of 7 are complete.** Data model and FastAPI skeleton (Section 16
+> step 1); AI pipeline and evaluation harness (step 2); the offline-first Field
+> Capture PWA (step 3). Phases 4–7 have not been started.
 
 ---
 
@@ -25,12 +25,13 @@ Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 | Vision pipeline (Gemini/Groq via LiteLLM) + offline mock | done |
 | Menu compliance — the Gadchiroli-precedent feature | done |
 | Evaluation harness — Section 6.5 metrics | done, reports `unvalidated` |
-| Test suite | 369 passing |
+| Field Capture PWA — offline-first, Hindi-first, 4 themes | done |
+| Test suite | 369 backend + 119 PWA passing |
 
 ### Not in these phases, by design
 
-Field Capture PWA (Phase 3) · District Dashboard (Phase 4) · State Admin pitch
-view (Phase 5) · phone-OTP auth (Phase 6) · deployment (Phase 7).
+District Dashboard (Phase 4) · State Admin pitch view (Phase 5) · phone-OTP auth
+(Phase 6) · deployment (Phase 7).
 
 The AI pipeline defaults to `AI_PROVIDER=mock` — deterministic, offline, and it
 spends no free-tier quota. Real recognition needs a Gemini key; see
@@ -202,6 +203,7 @@ against.
 ## Layout
 
 ```
+apps/field-pwa/   the worker's app  ← Section 9.1, see its own README
 backend/app/
 ├── growth/        WHO LMS math + vendored reference tables  ← Section 6.4
 ├── db/            models, migrations, RLS-scoped sessions   ← Sections 5, 11
@@ -211,7 +213,16 @@ backend/app/
 └── seed/          synthetic pilot data
 ```
 
-`apps/` is reserved for the three frontends in Phases 3–5.
+`apps/` holds the frontends; the District Dashboard and State Admin view join
+it in Phases 4–5.
+
+**The Field Capture PWA is deliberately not premium** — Section 9.1 names it as
+the one surface where animation libraries and 3D are the wrong choice, because
+it runs on a basic Android every day in a low-connectivity area. No UI
+framework, no animation library, no icon package: 63 KB gzipped. It is
+Hindi-first, works fully offline, and ships four themes including a
+high-contrast sunlight mode for outdoor use. See
+[apps/field-pwa/README.md](apps/field-pwa/README.md).
 
 ---
 
