@@ -17,7 +17,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import auth_dev, beneficiaries, captures, growth, health, reference
+from app.api.routes import (
+    auth_dev,
+    beneficiaries,
+    captures,
+    growth,
+    health,
+    reference,
+    reports,
+)
 from app.config import get_settings
 from app.db.session import dispose_engine
 
@@ -137,6 +145,7 @@ def create_app() -> FastAPI:
         beneficiaries.router,
         growth.router,
         captures.router,
+        reports.router,
     ):
         app.include_router(router)
 

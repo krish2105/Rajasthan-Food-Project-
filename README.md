@@ -4,9 +4,12 @@ AI-assisted meal monitoring for Anganwadi centres and Ashram schools in the
 Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 [`poshannetra-ai-master-prompt.md`](poshannetra-ai-master-prompt.md).
 
-> **Phases 1–3 of 7 are complete.** Data model and FastAPI skeleton (Section 16
-> step 1); AI pipeline and evaluation harness (step 2); the offline-first Field
-> Capture PWA (step 3). Phases 4–7 have not been started.
+> **Phases 1–3 and 5 of 7 are complete.** Data model and FastAPI skeleton
+> (Section 16 step 1); AI pipeline and evaluation harness (step 2); the
+> offline-first Field Capture PWA (step 3); the State Admin review surface
+> (step 5), which brought the `/reports` and `/compliance` aggregation with it.
+> Phase 4 (District Dashboard) was skipped and consumes the same endpoints when
+> it is built. Phases 6–7 have not been started.
 
 ---
 
@@ -26,12 +29,14 @@ Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 | Menu compliance — the Gadchiroli-precedent feature | done |
 | Evaluation harness — Section 6.5 metrics | done, reports `unvalidated` |
 | Field Capture PWA — offline-first, Hindi-first, 4 themes | done |
-| Test suite | 369 backend + 119 PWA passing |
+| Report aggregation — `/reports/state`, `/reports/district`, `/compliance` | done |
+| State Admin review surface — distribution hero, 3D map, PDF export | done |
+| District Dashboard (Phase 4) | not built |
+| Test suite | 388 backend + 119 PWA + 24 admin passing |
 
 ### Not in these phases, by design
 
-District Dashboard (Phase 4) · State Admin pitch view (Phase 5) · phone-OTP auth
-(Phase 6) · deployment (Phase 7).
+District Dashboard (Phase 4) · phone-OTP auth (Phase 6) · deployment (Phase 7).
 
 The AI pipeline defaults to `AI_PROVIDER=mock` — deterministic, offline, and it
 spends no free-tier quota. Real recognition needs a Gemini key; see
@@ -203,7 +208,8 @@ against.
 ## Layout
 
 ```
-apps/field-pwa/   the worker's app  ← Section 9.1, see its own README
+apps/field-pwa/     the worker's app     ← Section 9.1, deliberately plain
+apps/state-admin/   the review surface   ← Section 9.3, where the polish goes
 backend/app/
 ├── growth/        WHO LMS math + vendored reference tables  ← Section 6.4
 ├── db/            models, migrations, RLS-scoped sessions   ← Sections 5, 11
@@ -213,8 +219,7 @@ backend/app/
 └── seed/          synthetic pilot data
 ```
 
-`apps/` holds the frontends; the District Dashboard and State Admin view join
-it in Phases 4–5.
+`apps/` holds the frontends; the District Dashboard joins it in Phase 4.
 
 **The Field Capture PWA is deliberately not premium** — Section 9.1 names it as
 the one surface where animation libraries and 3D are the wrong choice, because
@@ -223,6 +228,13 @@ framework, no animation library, no icon package: 63 KB gzipped. It is
 Hindi-first, works fully offline, and ships four themes including a
 high-contrast sunlight mode for outdoor use. See
 [apps/field-pwa/README.md](apps/field-pwa/README.md).
+
+**The State Admin view is where the polish belongs** — Section 9.3 names it as
+the surface reviewers actually see. Its hero is the WHO z-score distribution
+rather than a stat block, it carries a 3D centre map with a flat toggle, and it
+exports to PDF through a print stylesheet. It also states its own limitations on
+the page, including when its AI output is a stand-in. See
+[apps/state-admin/README.md](apps/state-admin/README.md).
 
 ---
 

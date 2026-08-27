@@ -204,10 +204,8 @@ def test_malformed_jsonl_names_the_offending_line(tmp_path, monkeypatch) -> None
 def test_weighed_and_estimated_plates_are_separable(tmp_path, monkeypatch) -> None:
     path = tmp_path / "plates.jsonl"
     rows = [
-        {"image": "a.jpg", "items": [{"dish_code": "dal", "cooked_grams": 120}],
-         "weighed": True},
-        {"image": "b.jpg", "items": [{"dish_code": "dal", "cooked_grams": 110}],
-         "weighed": False},
+        {"image": "a.jpg", "items": [{"dish_code": "dal", "cooked_grams": 120}], "weighed": True},
+        {"image": "b.jpg", "items": [{"dish_code": "dal", "cooked_grams": 110}], "weighed": False},
     ]
     path.write_text("".join(json.dumps(r) + "\n" for r in rows))
     monkeypatch.setattr(golden, "PLATES_FILE", path)

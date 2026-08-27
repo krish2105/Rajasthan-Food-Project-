@@ -1,0 +1,233 @@
+@import "./tokens.css";
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--ink-900);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/*
+ * The growth-chart grid.
+ *
+ * The page's structural device, and the one thing on it borrowed directly from
+ * the subject's own world: WHO growth charts are printed on fine graph paper,
+ * and every ICDS supervisor has read one. Using that as the ground rather than
+ * a gradient mesh means the structure encodes something true about what this
+ * system does, instead of decorating it.
+ */
+.chart-ground {
+  position: relative;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(var(--grid-line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line-strong) 1px, transparent 1px);
+  background-size: 16px 16px, 16px 16px, 80px 80px, 80px 80px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 3px;
+}
+
+a { color: inherit; }
+
+.shell {
+  width: min(100% - 2.5rem, var(--shell));
+  margin-inline: auto;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+h1, h2, h3 { line-height: 1.12; font-weight: 600; letter-spacing: -0.015em; }
+h1 { font-size: var(--step-4); }
+h2 { font-size: var(--step-3); }
+h3 { font-size: var(--step-1); }
+
+/*
+ * Devanagari.
+ *
+ * Three corrections, all of which the Latin styles above get wrong for it:
+ *
+ *   - `text-transform: uppercase` is meaningless (the script has no case) and
+ *     in some renderers mangles the output;
+ *   - `letter-spacing` pulls apart conjunct clusters, so संयुक्त consonants stop
+ *     joining and the word becomes unreadable to a Hindi reader while looking
+ *     merely "tracked out" to one who is not;
+ *   - Devanagari sits on a taller skeleton than Latin at the same point size,
+ *     so a bilingual pair only reads as one unit if the Hindi is set slightly
+ *     smaller.
+ *
+ * Inherited from the eyebrow and any other utility that sets those properties,
+ * which is why this resets rather than assumes.
+ */
+.deva {
+  font-family: var(--font-deva);
+  font-size: 0.92em;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.prose { max-width: var(--measure); color: var(--text-secondary); }
+.prose + .prose { margin-top: var(--space-4); }
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+section { padding-block: var(--space-9); }
+section + section { border-top: 1px solid var(--line-soft); }
+
+.card {
+  background: var(--ink-700);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+}
+
+.grid { display: grid; gap: var(--space-4); }
+.grid--3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.grid--2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+.stat__value { font-size: var(--step-3); font-weight: 600; }
+.stat__label { color: var(--text-secondary); font-size: var(--step--1); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 0.2rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+}
+.tag--warn { color: var(--moderate); }
+.tag--severe { color: var(--severe); }
+.tag--ok { color: var(--normal); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: 44px; padding: 0 var(--space-4);
+  font: inherit; font-size: var(--step--1);
+  color: var(--text); background: var(--ink-600);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.btn:hover { background: var(--ink-700); border-color: var(--indigo); }
+.btn[aria-pressed="true"] { border-color: var(--indigo); color: var(--indigo); }
+
+.note {
+  border-left: 2px solid var(--brass);
+  padding-left: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--step--1);
+}
+
+table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+th, td { padding: var(--space-3) var(--space-3); text-align: left; border-bottom: 1px solid var(--line-soft); }
+th { color: var(--text-muted); font-weight: 500; font-family: var(--font-mono); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.08em; }
+td.num, th.num { text-align: right; }
+
+.only-print { display: none; }
+
+/* ---------------------------------------------------------------------------
+ * Reveal.
+ *
+ * The entrance used by every section. Deliberately plain CSS: the visible state
+ * is the default in the stylesheet and the hidden state is opt-in via the data
+ * attribute, so a JavaScript failure leaves content readable rather than
+ * invisible. Only opacity and transform animate, so nothing here can shift
+ * layout or fall off the compositor.
+ * ------------------------------------------------------------------------ */
+.reveal {
+  transition: opacity 500ms cubic-bezier(0.2, 0, 0.2, 1),
+              transform 500ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+.reveal[data-revealed="false"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.reveal[data-revealed="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Chart bars grow from the axis. transform-box: fill-box makes the SVG rect's
+   own bounding box the transform origin, so each bar scales from its base
+   rather than from the canvas origin. */
+.bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition: transform 500ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+.bar[data-revealed="false"] { transform: scaleY(0); }
+.bar[data-revealed="true"] { transform: scaleY(1); }
+
+/* Line draw, via the dash-offset technique. The path length is set inline from
+   the geometry, so this works for any shape without measuring in JS. */
+.draw {
+  transition: stroke-dashoffset 900ms ease-out;
+}
+.draw[data-revealed="false"] { stroke-dashoffset: var(--len); }
+.draw[data-revealed="true"] { stroke-dashoffset: 0; }
+
+/* ---------------------------------------------------------------------------
+ * Print.
+ *
+ * Section 9.3 asks for an exportable report for a state-level review meeting.
+ * This is that export: the browser's own print-to-PDF over a stylesheet that
+ * reflows the page into something a Collector's office can file.
+ *
+ * Charts become tables on paper. A 3D scene and a scroll-driven curve are the
+ * right way to hold a room's attention and the wrong way to put numbers in
+ * front of someone who will read them twice and annotate the margin.
+ * ------------------------------------------------------------------------ */
+@media print {
+  :root {
+    --ink-900: #fff; --ink-800: #fff; --ink-700: #fff; --ink-600: #f4f4f4;
+    --text: #000; --text-secondary: #222; --text-muted: #444;
+    --line: #999; --line-soft: #ccc;
+    --indigo: #1a3a8f; --brass: #7a5f00;
+    --grid-line: transparent; --grid-line-strong: transparent;
+    color-scheme: light;
+  }
+  @page { margin: 18mm 16mm; size: A4; }
+  body { font-size: 10pt; line-height: 1.4; background: #fff; }
+  .no-print, nav, canvas, .btn { display: none !important; }
+  .only-print { display: block; }
+  section { padding-block: var(--space-4); break-inside: avoid; border-top: 1px solid #ccc; }
+  h1 { font-size: 20pt; } h2 { font-size: 14pt; } h3 { font-size: 11pt; }
+  .card { border: 1px solid #999; padding: 8pt; break-inside: avoid; }
+  .shell { width: 100%; }
+  /* A URL printed after every link, so a report read on paper still leads back
+     to the source. */
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #555; }
+  table { break-inside: auto; }
+  tr { break-inside: avoid; }
+}
