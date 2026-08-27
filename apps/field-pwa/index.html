@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="hi">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Never maximum-scale or user-scalable=no: a worker who needs to zoom
+         must be able to (WCAG 1.4.4). viewport-fit covers notched devices. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="description" content="आंगनवाड़ी और आश्रम विद्यालय भोजन निगरानी" />
+    <title>पोषण नेत्र / PoshanNetra</title>
+    <!--
+      No webfont link. Android ships Noto Sans Devanagari system-wide, so
+      Devanagari renders correctly with zero network cost -- which matters more
+      than a bespoke typeface on a connection that may not exist. A downloaded
+      font is also one more thing that fails to load offline on first run.
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p style="padding:24px;font-size:18px">
+        यह ऐप चलाने के लिए JavaScript ज़रूरी है।<br />
+        This app requires JavaScript.
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

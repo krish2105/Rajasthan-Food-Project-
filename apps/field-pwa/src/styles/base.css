@@ -1,0 +1,440 @@
+/*
+ * Base styles and the shared component classes.
+ *
+ * Plain CSS on purpose. A utility framework would add a build step, a purge
+ * step and a class-name vocabulary for an app with roughly a dozen components;
+ * here the constraint that matters is bytes parsed on a slow CPU.
+ */
+
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Removes the 300ms tap delay without disabling pinch-zoom. */
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: calc(var(--font-base) * var(--font-scale));
+  font-weight: var(--weight-body);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  /* Vertical scroll only. Section 9.1's users should never meet a horizontal
+     scroll region, and a stray one is a bug that hides content off-screen. */
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+/* Motion is feedback here, never decoration. When the OS asks for less, there
+   is nothing worth keeping. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Visible to screen readers, not to eyes. Used for labels that would be
+   redundant sighted but are essential spoken. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--space-4);
+  z-index: var(--z-toast);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-emphasis);
+}
+.skip-link:focus {
+  top: var(--space-4);
+}
+
+/* --- App shell ---------------------------------------------------------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  /* Respect the notch and the gesture bar; a primary button under the home
+     indicator is a button that gets mis-tapped all day. */
+  padding-top: env(safe-area-inset-top);
+}
+
+.app__main {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  /* Clears the fixed bottom navigation plus the gesture area. */
+  padding-bottom: calc(var(--touch-comfortable) + var(--space-8) + env(safe-area-inset-bottom));
+}
+
+/* --- Header ------------------------------------------------------------- */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.header__title {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(var(--font-lg) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+  line-height: var(--leading-tight);
+}
+
+.header__subtitle {
+  display: block;
+  font-size: calc(var(--font-xs) * var(--font-scale));
+  font-weight: var(--weight-normal);
+  color: var(--color-text-secondary);
+}
+
+/* --- Bottom navigation -------------------------------------------------- */
+
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--color-surface);
+  border-top: var(--border-width) solid var(--color-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--touch-comfortable);
+  padding: var(--space-2) var(--space-1);
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: calc(var(--font-xs) * var(--font-scale));
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+/* Icon AND label, always. An icon-only nav is unguessable for a user who is
+   not confident with apps, which Section 9.1 says to expect. */
+.nav__item[aria-current="page"] {
+  color: var(--color-accent);
+  font-weight: var(--weight-emphasis);
+}
+
+.nav__item:active {
+  background: var(--color-surface-sunken);
+}
+
+/* --- Buttons ------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: var(--space-3) var(--space-5);
+  font-family: inherit;
+  font-size: calc(var(--font-base) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+  line-height: var(--leading-tight);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  /* Colour and opacity only -- never transform. A press that nudges layout
+     causes mis-taps and reads as jitter on a slow device. */
+  transition: background-color var(--duration-fast) var(--ease),
+    opacity var(--duration-fast) var(--ease);
+}
+
+.btn--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.btn--primary:active {
+  background: var(--color-primary);
+}
+
+.btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+.btn--secondary:active {
+  background: var(--color-surface-sunken);
+}
+
+.btn--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+/* The capture button. Deliberately enormous: it is pressed dozens of times a
+   day, often one-handed, sometimes by someone holding a plate. */
+.btn--capture {
+  min-height: var(--touch-primary);
+  font-size: calc(var(--font-lg) * var(--font-scale));
+  border-radius: var(--radius-lg);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Cards and lists ---------------------------------------------------- */
+
+.card {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.card + .card {
+  margin-top: var(--space-3);
+}
+
+.card__title {
+  font-size: calc(var(--font-lg) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+  line-height: var(--leading-tight);
+}
+
+.card__meta {
+  font-size: calc(var(--font-sm) * var(--font-scale));
+  color: var(--color-text-secondary);
+}
+
+/* --- Form controls ------------------------------------------------------ */
+
+.field {
+  display: block;
+  margin-bottom: var(--space-5);
+}
+
+/* Visible label, always. A placeholder disappears the moment typing starts,
+   which is precisely when a hesitant user needs it most. */
+.field__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: calc(var(--font-base) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+}
+
+.field__hint {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: calc(var(--font-sm) * var(--font-scale));
+  color: var(--color-text-secondary);
+}
+
+.field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: calc(var(--font-sm) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+  color: var(--color-danger);
+}
+
+.input,
+.select {
+  width: 100%;
+  min-height: var(--touch-comfortable);
+  padding: var(--space-3) var(--space-4);
+  font-family: inherit;
+  /* Never below 16px: iOS zooms the viewport on focus otherwise, and the
+     worker is left in a zoomed-in layout they must pinch back out of. */
+  font-size: calc(var(--font-base) * var(--font-scale));
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-4) center;
+  background-size: 20px;
+  padding-right: var(--space-8);
+}
+
+.input[aria-invalid="true"],
+.select[aria-invalid="true"] {
+  border-color: var(--color-danger);
+  border-width: 2px;
+}
+
+/* Numeric readouts use tabular figures so a changing value does not shuffle
+   the layout around it. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-numeric);
+}
+
+/* --- Status badges ------------------------------------------------------ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: calc(var(--font-sm) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+  /* Icon plus text, never colour alone -- a red dot means nothing to a
+     colour-blind user or in bright sun. */
+}
+
+.badge--pending { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge--synced { background: var(--color-success-bg); color: var(--color-success); }
+.badge--failed { background: var(--color-danger-bg); color: var(--color-danger); }
+.badge--info { background: var(--color-info-bg); color: var(--color-info); }
+
+/* --- Banners ------------------------------------------------------------ */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid currentColor;
+  font-size: calc(var(--font-sm) * var(--font-scale));
+  margin-bottom: var(--space-4);
+}
+
+.banner--offline { background: var(--color-warning-bg); color: var(--color-warning); }
+.banner--error { background: var(--color-danger-bg); color: var(--color-danger); }
+.banner--success { background: var(--color-success-bg); color: var(--color-success); }
+.banner--info { background: var(--color-info-bg); color: var(--color-info); }
+
+.banner__body { flex: 1; color: var(--color-text); }
+.banner__title { font-weight: var(--weight-bold); color: inherit; }
+
+/* --- Stats -------------------------------------------------------------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.stat {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.stat__value {
+  display: block;
+  font-size: calc(var(--font-3xl) * var(--font-scale));
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat__label {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: calc(var(--font-sm) * var(--font-scale));
+  color: var(--color-text-secondary);
+}
+
+/* --- Utility ------------------------------------------------------------ */
+
+.stack > * + * { margin-top: var(--space-4); }
+.row { display: flex; align-items: center; gap: var(--space-3); }
+.row--between { justify-content: space-between; }
+.text-secondary { color: var(--color-text-secondary); }
+.text-center { text-align: center; }
+
+.section-title {
+  font-size: calc(var(--font-lg) * var(--font-scale));
+  font-weight: var(--weight-emphasis);
+  margin-bottom: var(--space-3);
+}
+
+.empty {
+  padding: var(--space-7) var(--space-4);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

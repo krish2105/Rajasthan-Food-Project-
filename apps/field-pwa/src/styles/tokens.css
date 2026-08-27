@@ -1,0 +1,258 @@
+/*
+ * Design tokens.
+ *
+ * Four themes, not three. Light / dark / system are conventional; `sunlight`
+ * exists because this app is used outdoors in Rajasthan, where a normal light
+ * theme on a cheap LCD at 400 nits is genuinely unreadable. It is not a
+ * cosmetic variant -- it raises contrast to near-maximum, thickens weights and
+ * scales type up, at the cost of looking blunt indoors.
+ *
+ * Every colour is a semantic token. Components never write a hex value, so a
+ * theme is a block of variable reassignments and contrast can be reasoned
+ * about in one place rather than audited across a codebase.
+ *
+ * Contrast was checked per theme rather than assumed from light mode. Body
+ * text meets 4.5:1 and secondary text 3:1 in all four.
+ */
+
+:root {
+  /* --- Spacing: 4px rhythm, spacious end of the scale ------------------
+     Section 9.1 asks for large touch targets and low mis-tap rates on a
+     small screen, which is bought with whitespace rather than cleverness. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* --- Touch targets ---------------------------------------------------
+     48px is Material's floor and the right one here: the user may be older,
+     may be wearing the day on their hands, and is often standing up. The
+     primary actions are deliberately far larger. */
+  --touch-min: 48px;
+  --touch-comfortable: 56px;
+  --touch-primary: 72px;
+
+  /* --- Type: 16px base, never smaller for body ------------------------
+     Below 16px iOS auto-zooms on focus and Devanagari matras start to close
+     up. 15px would save a line here and there; it is not worth it. */
+  --font-xs: 13px;
+  --font-sm: 15px;
+  --font-base: 17px;
+  --font-lg: 20px;
+  --font-xl: 24px;
+  --font-2xl: 30px;
+  --font-3xl: 38px;
+
+  --leading-tight: 1.3;
+  --leading-normal: 1.55;  /* Devanagari needs more than Latin: matras and
+                              conjuncts extend above and below the baseline */
+  --leading-loose: 1.75;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Android ships Noto Sans Devanagari; system-ui covers Latin. No download,
+     so text renders on first run with no network at all. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans Devanagari", "Noto Sans", sans-serif;
+  --font-numeric: ui-monospace, "SF Mono", "Roboto Mono", monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --border-width: 1px;
+  --focus-width: 3px;
+
+  /* Durations are short and few. Section 9.1 rules out decorative motion;
+     what remains is feedback that an action registered. */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+}
+
+/* ---------------------------------------------------------------------------
+ * Light (default)
+ * ------------------------------------------------------------------------ */
+:root,
+[data-theme="light"] {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eef2f7;
+
+  --color-text: #020617;        /* 18.9:1 on surface */
+  --color-text-secondary: #475569; /* 7.5:1 -- comfortably past the 3:1 floor */
+  --color-text-muted: #64748b;
+
+  --color-primary: #0f172a;
+  --color-on-primary: #ffffff;
+  --color-accent: #0369a1;       /* 5.9:1 on white */
+  --color-on-accent: #ffffff;
+
+  --color-success: #15803d;
+  --color-success-bg: #dcfce7;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-info: #0369a1;
+  --color-info-bg: #e0f2fe;
+
+  --color-border: #cbd5e1;
+  --color-border-strong: #94a3b8;
+  --color-focus: #0369a1;
+  --color-scrim: rgb(2 6 23 / 55%);
+
+  --shadow-sm: 0 1px 2px rgb(2 6 23 / 8%);
+  --shadow-md: 0 2px 8px rgb(2 6 23 / 10%);
+  --shadow-lg: 0 8px 24px rgb(2 6 23 / 14%);
+
+  --font-scale: 1;
+  --weight-body: var(--weight-normal);
+  --weight-emphasis: var(--weight-semibold);
+  color-scheme: light;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dark -- for dim Anganwadi rooms and early-morning use.
+ * Desaturated surfaces and lighter tonal text, not inverted light values.
+ * ------------------------------------------------------------------------ */
+[data-theme="dark"] {
+  --color-bg: #0b1220;
+  --color-surface: #131c2b;
+  --color-surface-raised: #1b2537;
+  --color-surface-sunken: #080e19;
+
+  --color-text: #f1f5f9;         /* 15.2:1 on surface */
+  --color-text-secondary: #b6c2d3; /* 8.6:1 */
+  --color-text-muted: #8fa0b6;   /* 5.3:1 -- still past 4.5:1, unlike the
+                                    usual slate-500 that fails in dark mode */
+
+  --color-primary: #e2e8f0;
+  --color-on-primary: #0b1220;
+  --color-accent: #38bdf8;       /* lighter tonal variant, 7.9:1 on surface */
+  --color-on-accent: #06202e;
+
+  --color-success: #4ade80;
+  --color-success-bg: #08301c;
+  --color-warning: #fbbf24;
+  --color-warning-bg: #3a2a05;
+  --color-danger: #fca5a5;
+  --color-danger-bg: #3d1214;
+  --color-info: #7dd3fc;
+  --color-info-bg: #0b2c3d;
+
+  --color-border: #33415c;
+  --color-border-strong: #4d6182; /* borders must stay visible in BOTH themes;
+                                     a light-mode-only border vanishes here */
+  --color-focus: #7dd3fc;
+  --color-scrim: rgb(0 0 0 / 65%);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 45%);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 55%);
+
+  --font-scale: 1;
+  --weight-body: var(--weight-normal);
+  --weight-emphasis: var(--weight-semibold);
+  color-scheme: dark;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sunlight -- direct outdoor use.
+ *
+ * Pure black on pure white (21:1), heavier weights, larger type, thicker
+ * borders and no shadows, because a soft shadow is invisible in sunlight and
+ * only costs contrast. Deliberately blunt. It is meant to be switched on
+ * outside and off again indoors.
+ * ------------------------------------------------------------------------ */
+[data-theme="sunlight"] {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #f0f0f0;
+
+  --color-text: #000000;
+  --color-text-secondary: #1a1a1a;
+  --color-text-muted: #333333;
+
+  --color-primary: #000000;
+  --color-on-primary: #ffffff;
+  --color-accent: #00407a;
+  --color-on-accent: #ffffff;
+
+  --color-success: #005a23;
+  --color-success-bg: #d8f5e0;
+  --color-warning: #7a3d00;
+  --color-warning-bg: #ffeec2;
+  --color-danger: #8f0000;
+  --color-danger-bg: #ffd9d9;
+  --color-info: #00407a;
+  --color-info-bg: #d9ecff;
+
+  --color-border: #000000;
+  --color-border-strong: #000000;
+  --color-focus: #00407a;
+  --color-scrim: rgb(0 0 0 / 75%);
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  --border-width: 2px;
+  --font-scale: 1.12;
+  --weight-body: var(--weight-medium);
+  --weight-emphasis: var(--weight-bold);
+  color-scheme: light;
+}
+
+/* ---------------------------------------------------------------------------
+ * System preference, applied only when the user has not chosen explicitly.
+ * A stored choice always wins -- including over a phone that flips to dark at
+ * dusk while the worker is still outside in the light.
+ * ------------------------------------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-bg: #0b1220;
+    --color-surface: #131c2b;
+    --color-surface-raised: #1b2537;
+    --color-surface-sunken: #080e19;
+    --color-text: #f1f5f9;
+    --color-text-secondary: #b6c2d3;
+    --color-text-muted: #8fa0b6;
+    --color-primary: #e2e8f0;
+    --color-on-primary: #0b1220;
+    --color-accent: #38bdf8;
+    --color-on-accent: #06202e;
+    --color-success: #4ade80;
+    --color-success-bg: #08301c;
+    --color-warning: #fbbf24;
+    --color-warning-bg: #3a2a05;
+    --color-danger: #fca5a5;
+    --color-danger-bg: #3d1214;
+    --color-info: #7dd3fc;
+    --color-info-bg: #0b2c3d;
+    --color-border: #33415c;
+    --color-border-strong: #4d6182;
+    --color-focus: #7dd3fc;
+    --color-scrim: rgb(0 0 0 / 65%);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-md: 0 2px 8px rgb(0 0 0 / 45%);
+    --shadow-lg: 0 8px 24px rgb(0 0 0 / 55%);
+    color-scheme: dark;
+  }
+}
