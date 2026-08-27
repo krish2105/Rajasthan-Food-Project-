@@ -63,9 +63,7 @@ def test_rls_mode_without_a_token_does_not_silently_use_the_service_key_path(
 
 async def test_upload_rejects_an_unsupported_content_type() -> None:
     with pytest.raises(storage.StorageError, match="unsupported content type"):
-        await storage.upload_photo(
-            path="a/b/c.pdf", data=b"%PDF", content_type="application/pdf"
-        )
+        await storage.upload_photo(path="a/b/c.pdf", data=b"%PDF", content_type="application/pdf")
 
 
 async def test_upload_rejects_an_oversized_photo() -> None:
@@ -73,9 +71,7 @@ async def test_upload_rejects_an_oversized_photo() -> None:
     metered rural connection (Section 7)."""
     oversized = b"\x00" * (storage.MAX_PHOTO_BYTES + 1)
     with pytest.raises(storage.StorageError, match="exceeds"):
-        await storage.upload_photo(
-            path="a/b/c.jpg", data=oversized, content_type="image/jpeg"
-        )
+        await storage.upload_photo(path="a/b/c.jpg", data=oversized, content_type="image/jpeg")
 
 
 async def test_upload_raises_a_clear_error_when_storage_is_unconfigured(monkeypatch) -> None:

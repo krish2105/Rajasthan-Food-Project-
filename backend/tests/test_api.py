@@ -54,7 +54,7 @@ def _jpeg(colour=(200, 160, 60)) -> bytes:
 async def test_health_is_open(client) -> None:
     r = await client.get("/health")
     assert r.status_code == 200
-    assert r.json()["phase"] == 1
+    assert r.json()["phase"] == 2
 
 
 async def test_health_db_reports_policy_count(client, fixtures) -> None:
@@ -441,3 +441,118 @@ async def test_listing_survives_a_storage_outage(client, fixtures, auth, monkeyp
     assert r.status_code == 200
     assert r.json()["items"][0]["photo_signed_url"] is None
     assert r.json()["items"][0]["photo_url"]  # path still returned
+
+
+# --------------------------------------------------------------------------
+# Phase 2: background inference wiring
+# --------------------------------------------------------------------------
+
+
+async def test_health_reports_ai_status_and_flags_mock(client, fixtures) -> None:
+    """A demo must not be able to present mock output as a real measurement,
+    so the provider is visible from an unauthenticated health check."""
+    body = (await client.get("/health")).json()
+    assert body["phase"] == 2
+    assert body["ai"]["provider"] == "mock"
+    assert body["ai"]["is_mock"] is True
+    assert body["ai"]["enabled"] is True
+
+
+async def test_upload_returns_before_inference_runs(client, fixtures, auth, fake_storage) -> None:
+    """Section 7's core guarantee. The response carries sync_status='pending'
+    and no AI columns: the worker is not waiting for a model."""
+    child = fixtures["children"]["PT-A1-0001"]
+    r = await client.post(
+        "/captures",
+        headers=auth(fixtures["workers"]["5550000001"]),
+        data={"beneficiary_id": str(child["id"]), "meal_type": "lunch"},
+        files={"photo": ("plate.jpg", _jpeg(), "image/jpeg")},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["sync_status"] == "pending"
+    assert body["ai_calories"] is None
+
+
+async def test_reprocess_requeues_a_failed_capture(client, fixtures, auth, fake_storage) -> None:
+    child = fixtures["children"]["PT-A1-0001"]
+    headers = auth(fixtures["workers"]["5550000001"])
+    created = await client.post(
+        "/captures",
+        headers=headers,
+        data={"beneficiary_id": str(child["id"]), "meal_type": "lunch"},
+        files={"photo": ("plate.jpg", _jpeg(), "image/jpeg")},
+    )
+    capture_id = created.json()["id"]
+
+    from sqlalchemy import text
+
+    from app.db.session import admin_session
+
+    async with admin_session() as session:
+        async with session.begin():
+            await session.execute(
+                text(
+                    "UPDATE plate_captures SET sync_status='failed', ai_error='429' WHERE id = :i"
+                ),
+                {"i": capture_id},
+            )
+
+    r = await client.post(f"/captures/{capture_id}/reprocess", headers=headers)
+    assert r.status_code == 200
+
+
+async def test_reprocessing_an_already_synced_capture_is_a_conflict(
+    client, fixtures, auth, fake_storage
+) -> None:
+    child = fixtures["children"]["PT-A1-0001"]
+    headers = auth(fixtures["workers"]["5550000001"])
+    created = await client.post(
+        "/captures",
+        headers=headers,
+        data={"beneficiary_id": str(child["id"]), "meal_type": "lunch"},
+        files={"photo": ("plate.jpg", _jpeg(), "image/jpeg")},
+    )
+    capture_id = created.json()["id"]
+
+    from sqlalchemy import text
+
+    from app.db.session import admin_session
+
+    async with admin_session() as session:
+        async with session.begin():
+            await session.execute(
+                text("UPDATE plate_captures SET sync_status='synced' WHERE id = :i"),
+                {"i": capture_id},
+            )
+
+    r = await client.post(f"/captures/{capture_id}/reprocess", headers=headers)
+    assert r.status_code == 409
+
+
+async def test_reprocess_is_scoped_like_every_other_capture_route(
+    client, fixtures, auth, fake_storage
+) -> None:
+    """RLS decides visibility; an out-of-scope id is a 404, not a 403."""
+    child = fixtures["children"]["PT-B1-0001"]
+    created = await client.post(
+        "/captures",
+        headers=auth(fixtures["workers"]["5550000003"]),
+        data={"beneficiary_id": str(child["id"]), "meal_type": "lunch"},
+        files={"photo": ("plate.jpg", _jpeg(), "image/jpeg")},
+    )
+    other_capture = created.json()["id"]
+    r = await client.post(
+        f"/captures/{other_capture}/reprocess",
+        headers=auth(fixtures["workers"]["5550000001"]),
+    )
+    assert r.status_code == 404
+
+
+async def test_state_admin_cannot_reprocess(client, fixtures, auth) -> None:
+    """Reprocessing triggers work; it belongs to the roles that own the data."""
+    r = await client.post(
+        f"/captures/{uuid.uuid4()}/reprocess",
+        headers=auth(fixtures["workers"]["5550000020"]),
+    )
+    assert r.status_code == 403

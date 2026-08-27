@@ -1,10 +1,16 @@
 """Plate capture upload and retrieval (Sections 5, 7, 8, 12).
 
-Phase 1 stores the photo and the metadata and stops. No AI runs here -- Phase 2
-adds the Gemini/Groq pipeline behind `BackgroundTasks`. The ordering that
-matters is already in place: the row is written with `sync_status='pending'`
-*after* the photo is safely in Storage and *before* any inference is attempted,
-so an AI failure can never lose a capture (Section 7's retry-safe requirement).
+Phase 2 added inference, but only *after* the response is sent. The ordering is
+Section 7's and it is the point of the whole design:
+
+    photo -> Storage  ->  row written 'pending'  ->  RESPONSE RETURNS
+                                                 ->  background: infer, update row
+
+A field worker never waits for a model, and a rate limit or an outage leaves the
+row 'failed' with a reason and the photograph intact, not lost. `POST
+/captures/{id}/reprocess` re-runs a failed one; without it a transient free-tier
+failure would strand a capture permanently, which Section 7's retry-safe
+requirement does not allow.
 
 Section 12: these are photographs of plates. There is no endpoint here, and must
 never be one, that stores an image of a child.
@@ -15,10 +21,22 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 
+from app.ai import tasks as ai_tasks
 from app.api.deps import CurrentPrincipal, ScopedSession, require_role
+from app.config import get_settings
 from app.core.principal import Role
 from app.db.models import Beneficiary, PlateCapture
 from app.db.models.plate_capture import MEAL_TYPES
@@ -58,6 +76,7 @@ async def _with_signed_url(row: PlateCapture, principal: CurrentPrincipal) -> Pl
 async def create_capture(
     session: ScopedSession,
     principal: CurrentPrincipal,
+    background: BackgroundTasks,
     beneficiary_id: uuid.UUID = Form(...),
     meal_type: str = Form(...),
     captured_at: datetime | None = Form(default=None),
@@ -115,6 +134,56 @@ async def create_capture(
     session.add(row)
     await session.flush()
     await session.refresh(row)
+
+    # Queued, not awaited. Everything above has already committed the evidence;
+    # nothing below can take the capture away.
+    settings = get_settings()
+    if settings.ai_enabled and settings.ai_configured:
+        background.add_task(ai_tasks.process_capture, row.id)
+
+    return await _with_signed_url(row, principal)
+
+
+@router.post(
+    "/{capture_id}/reprocess",
+    response_model=PlateCaptureOut,
+    dependencies=[Depends(require_role(Role.FIELD_WORKER, Role.DISTRICT_OFFICIAL))],
+)
+async def reprocess_capture(
+    capture_id: uuid.UUID,
+    session: ScopedSession,
+    principal: CurrentPrincipal,
+    background: BackgroundTasks,
+) -> PlateCaptureOut:
+    """Re-queue a capture whose inference failed.
+
+    Section 7 requires the pipeline to be retry-safe. Free-tier rate limits are
+    a routine, transient condition rather than an exceptional one, so there has
+    to be a way to pick a capture back up; otherwise one busy afternoon
+    permanently strands a day's evidence.
+
+    RLS decides visibility: a worker can only reprocess a capture they can see,
+    and an out-of-scope id is a 404 like everywhere else.
+    """
+    row = (
+        await session.execute(select(PlateCapture).where(PlateCapture.id == capture_id))
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+    if row.sync_status == "synced":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="capture is already processed; nothing to reprocess",
+        )
+
+    settings = get_settings()
+    if not (settings.ai_enabled and settings.ai_configured):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI pipeline is not enabled or not configured",
+        )
+
+    background.add_task(ai_tasks.process_capture, row.id)
     return await _with_signed_url(row, principal)
 
 
