@@ -4,9 +4,9 @@ AI-assisted meal monitoring for Anganwadi centres and Ashram schools in the
 Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 [`poshannetra-ai-master-prompt.md`](poshannetra-ai-master-prompt.md).
 
-> **Phase 1 of 7 is complete.** Data model, FastAPI skeleton, and pitch-grade
-> seeded sample data (master prompt, Section 16 step 1). Phases 2–7 have not
-> been started.
+> **Phases 1 and 2 of 7 are complete.** Data model and FastAPI skeleton
+> (Section 16 step 1); AI pipeline and evaluation harness (step 2). Phases 3–7
+> have not been started.
 
 ---
 
@@ -20,22 +20,25 @@ Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 | Row-level security — Section 10 scoping enforced in Postgres | done, proven |
 | FastAPI skeleton — 13 routes, bilingual contracts | done |
 | Seeded sample data — 3 centres, 120 children, 6 months | done |
-| Test suite | 190 passing |
+| IFCT 2017 nutrition — 542 foods, vendored with provenance | done |
+| Cooked→raw recipe layer anchored to PM POSHAN norms | done |
+| Vision pipeline (Gemini/Groq via LiteLLM) + offline mock | done |
+| Menu compliance — the Gadchiroli-precedent feature | done |
+| Evaluation harness — Section 6.5 metrics | done, reports `unvalidated` |
+| Test suite | 369 passing |
 
-### Not in this phase, by design
+### Not in these phases, by design
 
-Gemini/Groq AI pipeline (Phase 2) · Field Capture PWA (Phase 3) · District
-Dashboard (Phase 4) · State Admin pitch view (Phase 5) · phone-OTP auth
-(Phase 6) · deployment (Phase 7).
+Field Capture PWA (Phase 3) · District Dashboard (Phase 4) · State Admin pitch
+view (Phase 5) · phone-OTP auth (Phase 6) · deployment (Phase 7).
 
-Every `ai_*` column on `plate_captures` is `NULL` and every capture is
-`sync_status='pending'`. That is the Phase 1 contract, not an oversight —
-Section 16 builds the AI pipeline in isolation *after* the data model, and
-Section 7 requires that capture never block on inference.
+The AI pipeline defaults to `AI_PROVIDER=mock` — deterministic, offline, and it
+spends no free-tier quota. Real recognition needs a Gemini key; see
+[docs/phase2-ai-setup.md](docs/phase2-ai-setup.md).
 
 ---
 
-## The two things worth reviewing first
+## The four things worth reviewing first
 
 **1. Growth classification is arithmetic, not a model.**
 Section 6.4 is categorical that no LLM may sit in this path. `app/growth/lms.py`
@@ -57,9 +60,27 @@ the filter is not in the handler — it is a policy the planner applies to every
 statement (`alembic/versions/0002_rls_policies.py`). `tests/test_rls.py` proves
 the isolation against the database directly, with FastAPI out of the picture.
 
+**3. Nutrition is arithmetic, and the recipe layer is why it is right.**
+IFCT 2017 is a table of *raw* foods; a camera sees *cooked* food. Section 6.3's
+formula, applied literally, reports 150 g of rice at ~535 kcal instead of ~207 —
+always in the direction that makes an underfed child look adequately fed.
+`app/nutrition/recipes.py` converts each dish to raw ingredients using PM POSHAN's
+own per-child norms before any IFCT lookup, so every calorie traces to either an
+ICMR-NIN published value or a government standard. A standard plate totals
+475 kcal / 11.8 g protein against PM POSHAN's published 450 / 12.
+
+**4. The eval harness refuses to flatter the system.**
+With no labelled photographs it reports `unvalidated`, never `0%` and never a
+default. Under the mock provider it refuses to report accuracy at all. Section 15
+asks any pitch to cite measured numbers rather than projections; this is the
+thing that makes that possible to comply with.
+
 See [`docs/deviations-from-master-prompt.md`](docs/deviations-from-master-prompt.md)
-for the five documented departures from Section 5, including the clinical fix
-(D1) that stops school-age children being scored against an under-five standard.
+for the seven documented departures from the spec — the clinical fix (D1) that
+stops school-age children being scored against an under-five standard, the
+cooked-versus-raw fix (D6), and the closed vocabulary (D7) that replaced
+free-text IFCT matching after it turned out to map "dal" to *Ragi* and "kela" to
+*plantain* with perfect confidence.
 
 ---
 

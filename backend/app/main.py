@@ -68,7 +68,23 @@ def _problem(
 async def lifespan(_: FastAPI):
     settings = get_settings()
     logging.basicConfig(level=settings.log_level)
-    logger.info("PoshanNetra API starting (env=%s, phase=1)", settings.app_env)
+    from app.ai import client as ai_client
+
+    ai_client.export_provider_keys()
+    logger.info(
+        "PoshanNetra API starting (env=%s, phase=2, ai_provider=%s, ai_enabled=%s)",
+        settings.app_env,
+        settings.ai_provider,
+        settings.ai_enabled,
+    )
+    if settings.ai_enabled and not settings.ai_configured:
+        # Loud at startup rather than silent per-capture: without this, every
+        # capture would simply stay 'pending' with no visible cause.
+        logger.warning(
+            "AI is enabled but provider %r has no API key; captures will stay "
+            "pending. See docs/phase2-ai-setup.md",
+            settings.ai_provider,
+        )
     yield
     await dispose_engine()
 
@@ -78,11 +94,12 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="PoshanNetra AI API",
         description=(
-            "Phase 1: data model, API skeleton and seeded sample data.\n\n"
-            "Growth classification is deterministic WHO LMS arithmetic over "
-            "vendored reference tables -- no model sits in that path "
-            "(master prompt, Section 6.4). AI columns on plate captures are "
-            "populated in Phase 2."
+            "Phase 2: AI pipeline and evaluation harness.\n\n"
+            "Two paths never touch a model. Growth classification is "
+            "deterministic WHO LMS arithmetic over vendored reference tables "
+            "(Section 6.4). Nutrition is a deterministic IFCT 2017 lookup "
+            "through recipe and yield conversion (Section 6.3) -- the vision "
+            "model estimates portions only, and is never asked for calories."
         ),
         version="0.1.0",
         lifespan=lifespan,

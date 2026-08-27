@@ -30,12 +30,36 @@ class Settings(BaseSettings):
     # See docs/phase1-supabase-setup.md.
     storage_mode: Literal["rls", "service"] = "rls"
 
+    # --- Phase 2: AI pipeline (Section 4, zero-paid-API constraint) --------
+    # "mock" is the default on purpose: nothing should spend free-tier quota by
+    # accident, and CI must never depend on a live rate-limited endpoint.
+    ai_provider: Literal["mock", "gemini", "groq"] = "mock"
+    ai_vision_model: str = "gemini/gemini-2.0-flash"
+    ai_text_model: str = "groq/llama-3.3-70b-versatile"
+    #: Master switch. When false, captures are stored and left 'pending' exactly
+    #: as they were in Phase 1 -- the Section 7 guarantee that capture never
+    #: depends on inference.
+    ai_enabled: bool = True
+    #: Read by LiteLLM from the environment; declared here so a missing key is a
+    #: startup-visible configuration fact rather than a runtime surprise.
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+
     seed_random_seed: int = 20260828
     seed_upload_photos: bool = True
 
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def ai_configured(self) -> bool:
+        """Whether the selected provider actually has what it needs."""
+        if self.ai_provider == "mock":
+            return True
+        if self.ai_provider == "gemini":
+            return bool(self.gemini_api_key)
+        return bool(self.groq_api_key)
 
     @property
     def storage_configured(self) -> bool:

@@ -39,3 +39,10 @@ reset:
 	uv run alembic downgrade base
 	uv run alembic upgrade head
 	uv run python -m app.seed
+
+eval:
+	uv run python -m app.eval
+
+fetch-data:
+	uv run python scripts/fetch_who_tables.py
+	uv run python scripts/fetch_ifct_table.py

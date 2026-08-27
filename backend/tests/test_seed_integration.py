@@ -150,10 +150,7 @@ async def test_no_seeded_measurement_is_implausible(seeded) -> None:
     async with admin_session() as session:
         flagged = (
             await session.execute(
-                text(
-                    "SELECT count(*) FROM growth_entries "
-                    "WHERE data_quality_flags <> '[]'::jsonb"
-                )
+                text("SELECT count(*) FROM growth_entries WHERE data_quality_flags <> '[]'::jsonb")
             )
         ).scalar_one()
     assert flagged == 0

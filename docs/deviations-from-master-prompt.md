@@ -115,6 +115,79 @@ unrecognised error code offline.
 
 ---
 
+## D6 — nutrition goes through a recipe and yield layer, not Section 6.3's formula
+
+**Section 6.3 as written.** `estimated_grams x (IFCT per-100g value / 100)`.
+
+**The problem.** IFCT 2017 is a table of **raw** foods — 534 of its 542 entries,
+the exceptions being six egg preparations and parboiled rice. A camera
+photographs **cooked** food:
+
+| | IFCT (raw) | actual cooked |
+|---|---|---|
+| Rice | 356 kcal/100 g | ~130 |
+| Dal | 329 kcal/100 g | ~110 |
+| Atta | 320 kcal/100 g | ~300 (roti) |
+
+Applied literally the formula charges cooked weight at dry-ingredient density.
+For 150 g of rice on a plate it reports ~535 kcal against a true ~207 — an
+overstatement of about 3x. The direction matters more than the magnitude: the
+error always makes an underfed child look adequately fed, which is the worst way
+for this system to be wrong.
+
+**What we did.** `app/nutrition/recipes.py` maps each PM POSHAN dish to its raw
+ingredients and a cooked serving weight; IFCT is then looked up on the raw
+ingredients, which is what IFCT is for. Raw grain, pulse, vegetable and oil
+quantities are anchored to PM POSHAN's per-child norms (100 g grains / 20 g
+pulses / 50 g vegetables / 5 g oil at primary stage), so the numbers trace to a
+government standard rather than to a guess.
+
+**Independent check.** A standard plate totals 475 kcal / 11.8 g protein through
+this table against PM POSHAN's own published target of 450 kcal / 12 g. The
+recipes reproduce the norm they were anchored to.
+
+**Honest caveat.** The serving weights and yield factors are standard kitchen
+values, not measurements — the least certain numbers in the system. Every dish
+is marked `uncalibrated`, every result warns, and the eval harness caveats the
+calorie metric until the Section 14 step 3 calibration session happens.
+
+---
+
+## D7 — the vision model gets a closed dish vocabulary, not free-text IFCT matching
+
+**Section 6.2 as written.** Constrain `food_name` to the IFCT vocabulary, with a
+fuzzy-match fallback (rapidfuzz) for near misses.
+
+**The problem.** Fuzzy-matching free text across IFCT's 542 entries returns
+confident nonsense:
+
+| query | top match | score |
+|---|---|---|
+| `dal` | Ragi | 90 |
+| `kela` | Plantain, green | 100 |
+| `aalu` | Yam, ordinary | 100 |
+| `rice` | Rice flakes | 90 |
+
+These are not scorer artefacts — verified across WRatio, QRatio,
+token_sort_ratio and ratio, all four agree. IFCT genuinely lists "Kela" as a
+local name for plantain and "Alu" for yam, so the ambiguity is in the data and
+no threshold separates it. Section 6.2 anticipated silent lookup *failure*; the
+real behaviour is worse, because a wrong match produces a confident calorie
+figure for a food that was never on the plate.
+
+**What we did.** The model is handed the ~10-dish PM POSHAN vocabulary as a JSON
+schema enum, and fuzzy matching happens against ~76 curated aliases (English,
+romanised Hindi and Devanagari) rather than 542 ambiguous food names. Each dish
+names its IFCT codes **explicitly**; `ifct.get(code)` is the only path the
+pipeline uses. A detected food outside the vocabulary is reported as
+"detected but not costed" rather than approximated.
+
+`ifct.find()` was removed and replaced by `ifct.search()`, which returns ranked
+*candidates* and is documented as unusable for nutrition. A test pins the three
+wrong matches above so nobody reintroduces the convenience.
+
+---
+
 ## Not a deviation, but worth recording
 
 **RLS is enforced in Postgres, not only in Python.** Section 11 asks for
@@ -147,6 +220,17 @@ measurement is not rejected -- a genuinely extreme child exists, and refusing to
 record them would be the worse failure. The bounds sit well outside the -3 SD
 cut-offs, so no real classification boundary is ever swallowed; a test asserts
 that a genuine SAM case at -3.4 SD passes through unflagged.
+
+**The background inference task uses the owner connection.** Migration 0002
+grants the `authenticated` role no UPDATE on any table, deliberately. The Phase 2
+task that writes AI results back is a server-side process updating a row it was
+handed, not a user acting on someone's data, so it uses `admin_session` and
+touches only the single capture id it was given.
+
+**`POST /captures/{id}/reprocess` is not in Section 8's route list.** It was
+added because Section 7 requires the pipeline to be retry-safe, and free-tier
+rate limits are a routine rather than exceptional condition. Without a retry
+path, one busy afternoon would permanently strand a day's evidence.
 
 **No UPDATE or DELETE policy exists on any table.** For a system of record about
 children, corrections should be append-only amendments with an audit trail

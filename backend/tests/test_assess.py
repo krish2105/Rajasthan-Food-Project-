@@ -158,8 +158,11 @@ def test_a_data_entry_typo_is_flagged_not_trusted() -> None:
     authoritative-looking growth record.
     """
     a = assess(
-        dob=at_age_days(180), recorded_at=REF, sex=Sex.FEMALE,
-        height_cm=88.0, weight_kg=10.4,
+        dob=at_age_days(180),
+        recorded_at=REF,
+        sex=Sex.FEMALE,
+        height_cm=88.0,
+        weight_kg=10.4,
     )
     assert "haz" in a.data_quality_flags
     assert a.haz is not None, "the raw z-score is retained for audit"
@@ -170,8 +173,11 @@ def test_a_data_entry_typo_is_flagged_not_trusted() -> None:
 def test_a_flagged_index_cannot_drive_the_classification() -> None:
     """The point of flagging: a typo must not manufacture or mask a case."""
     a = assess(
-        dob=at_age_days(180), recorded_at=REF, sex=Sex.FEMALE,
-        height_cm=88.0, weight_kg=10.4,
+        dob=at_age_days(180),
+        recorded_at=REF,
+        sex=Sex.FEMALE,
+        height_cm=88.0,
+        weight_kg=10.4,
     )
     assert a.classification_detail["stunting"] is None
     assert a.classification != "stunted"
@@ -179,8 +185,11 @@ def test_a_flagged_index_cannot_drive_the_classification() -> None:
 
 def test_a_plausible_measurement_carries_no_flags() -> None:
     a = assess(
-        dob=at_age_days(1100), recorded_at=REF, sex=Sex.FEMALE,
-        height_cm=88.0, weight_kg=10.4,
+        dob=at_age_days(1100),
+        recorded_at=REF,
+        sex=Sex.FEMALE,
+        height_cm=88.0,
+        weight_kg=10.4,
     )
     assert a.data_quality_flags == []
     assert a.classification_detail["stunting"] is not None
@@ -190,8 +199,11 @@ def test_a_genuinely_severe_case_is_not_flagged_away() -> None:
     """The failure mode to avoid in the other direction: a real SAM child sits
     well below -3 SD, and must still be classified, not dismissed as a typo."""
     a = assess(
-        dob=at_age_days(900), recorded_at=REF, sex=Sex.MALE,
-        height_cm=82.0, weight_kg=7.6,
+        dob=at_age_days(900),
+        recorded_at=REF,
+        sex=Sex.MALE,
+        height_cm=82.0,
+        weight_kg=7.6,
     )
     assert a.data_quality_flags == []
     assert a.classification == "SAM"

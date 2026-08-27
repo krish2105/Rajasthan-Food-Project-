@@ -21,7 +21,18 @@ router = APIRouter(tags=["health"])
 @router.get("/health")
 async def health() -> dict:
     settings = get_settings()
-    return {"status": "ok", "app_env": settings.app_env, "phase": 1}
+    return {
+        "status": "ok",
+        "app_env": settings.app_env,
+        "phase": 2,
+        "ai": {
+            "enabled": settings.ai_enabled,
+            "provider": settings.ai_provider,
+            "configured": settings.ai_configured,
+            # Surfaced so a demo cannot quietly present mock output as real.
+            "is_mock": settings.ai_provider == "mock",
+        },
+    }
 
 
 @router.get("/health/db")

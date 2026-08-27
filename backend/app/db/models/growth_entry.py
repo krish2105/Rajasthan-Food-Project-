@@ -66,9 +66,7 @@ class GrowthEntry(Base):
     classification_detail: Mapped[dict] = mapped_column(JSONB, nullable=False)  # D2
     #: WHO Anthro implausible-value flags. Empty list for a clean measurement.
     #: Stored so a flagged row stays identifiable in analysis and in any export.
-    data_quality_flags: Mapped[list] = mapped_column(
-        JSONB, nullable=False, server_default="[]"
-    )
+    data_quality_flags: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
 
     recorded_by: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("field_workers.id", ondelete="SET NULL")

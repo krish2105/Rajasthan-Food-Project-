@@ -15,6 +15,11 @@ dependencies = [
     "python-multipart>=0.0.17",
     "httpx>=0.28",
     "pillow>=11.0",
+    # Section 4: single abstraction so a Gemini/Groq/future-model swap does not
+    # touch business logic.
+    "litellm>=1.55",
+    # Fuzzy matching for the closed PM POSHAN dish vocabulary.
+    "rapidfuzz>=3.10",
 ]
 
 [project.optional-dependencies]
