@@ -23,7 +23,6 @@ Checks, in the order a deployment depends on them:
 from __future__ import annotations
 
 import asyncio
-import re
 import sys
 
 import httpx
@@ -31,7 +30,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
-from app.db.url import DatabaseUrlError, normalise_database_url
+from app.db.url import (
+    DatabaseUrlError,
+    is_in_india,
+    normalise_database_url,
+    region_of,
+)
 
 OK = "  \033[32mok\033[0m   "
 BAD = "  \033[31mFAIL\033[0m "
@@ -170,15 +174,14 @@ async def check_storage(url: str, key: str, bucket: str) -> bool:
 
 def check_region(url: str) -> None:
     """Region is a legal question here, not only a latency one."""
-    match = re.search(r"aws-\d+-([a-z]+-[a-z]+-\d+)", url or "")
-    region = match.group(1) if match else None
+    region = region_of(url)
     if region is None:
         line(WARN, "could not read the region from DATABASE_URL")
         return
-    if region == "ap-south-1":
-        line(OK, "region ap-south-1 (Mumbai) -- data stays in India")
+    if is_in_india(url):
+        line(OK, f"region {region} -- the data rests in India")
         return
-    line(WARN, f"region {region} -- this is not an Indian region")
+    line(BAD, f"region {region} is outside India")
     print("       Section 12 puts this system under India's DPDP Act, 2023, and")
     print("       the first question at any government legal review is where the")
     print("       data lives. Supabase cannot move a project between regions, so")
@@ -191,13 +194,16 @@ async def main() -> None:
 
     db_ok, url = await check_database(settings.database_url)
     check_region(url)
+    # A non-Indian region is a blocking finding, not advice: it cannot be
+    # changed later without moving every row.
+    region_ok = is_in_india(url) is not False
     jwt_ok = check_jwt_secret(settings.supabase_jwt_secret)
     storage_ok = await check_storage(
         settings.supabase_url, settings.supabase_service_key, settings.supabase_storage_bucket
     )
 
     print()
-    if db_ok and jwt_ok and storage_ok:
+    if db_ok and jwt_ok and storage_ok and region_ok:
         print("Ready. Next: alembic upgrade head, then python -m app.seed")
         sys.exit(0)
     print("Not ready -- fix the FAIL lines above before configuring Render.")

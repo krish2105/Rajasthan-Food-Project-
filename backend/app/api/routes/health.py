@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.db.session import get_engine
+from app.db.url import is_in_india, region_of
 
 router = APIRouter(tags=["health"])
 
@@ -37,6 +38,7 @@ async def health() -> dict:
 
 @router.get("/health/db")
 async def health_db() -> JSONResponse:
+    settings = get_settings()
     try:
         async with get_engine().connect() as conn:
             await conn.execute(text("SELECT 1"))
@@ -49,4 +51,18 @@ async def health_db() -> JSONResponse:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unavailable", "error": type(exc).__name__},
         )
-    return JSONResponse(content={"status": "ok", "rls_policies": policy_count})
+    # Data residency, answerable without dashboard access. Section 12 puts this
+    # system under the DPDP Act, 2023, so "where does the data rest" is a
+    # question a reviewer is entitled to check for themselves rather than take
+    # on trust. Only the region code is exposed -- never the host or the DSN.
+    region = region_of(settings.database_url)
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "rls_policies": policy_count,
+            "data_residency": {
+                "region": region,
+                "in_india": is_in_india(settings.database_url),
+            },
+        }
+    )

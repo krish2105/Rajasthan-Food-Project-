@@ -71,6 +71,22 @@ async def test_health_db_reports_policy_count(client, fixtures) -> None:
     assert r.json()["rls_policies"] > 0
 
 
+async def test_health_db_reports_data_residency(client, fixtures) -> None:
+    # Section 12 puts this under the DPDP Act, so where the data rests must be
+    # checkable from outside rather than taken on trust. Tests run against a
+    # local Postgres, whose host names no region -- so the contract asserted
+    # here is the shape and the absence of any leaked connection detail.
+    body = (await client.get("/health/db")).json()
+    assert "data_residency" in body
+    assert set(body["data_residency"]) == {"region", "in_india"}
+
+
+async def test_health_db_never_leaks_the_connection_string(client, fixtures) -> None:
+    raw = (await client.get("/health/db")).text
+    for secret in ("password", "@localhost", "postgresql", "asyncpg"):
+        assert secret not in raw
+
+
 @pytest.mark.parametrize("path", ["/me", "/awcs", "/beneficiaries", "/captures"])
 async def test_protected_routes_require_a_token(client, fixtures, path: str) -> None:
     r = await client.get(path)

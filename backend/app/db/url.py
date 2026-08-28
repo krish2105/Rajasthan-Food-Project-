@@ -96,3 +96,27 @@ def normalise_database_url(raw: str) -> str:
 def redact(url: str) -> str:
     """Mask the password so a connection string can be shown in a log or error."""
     return re.sub(r"://([^:/@]+):([^@]+)@", r"://\1:***@", url)
+
+
+#: AWS regions physically inside India. Under the DPDP Act, 2023 the question a
+#: reviewer asks is where the data rests, so this is about the database host --
+#: not about where the API compute happens to run.
+INDIAN_REGIONS = frozenset({"ap-south-1", "ap-south-2"})
+
+_REGION = re.compile(r"aws-\d+-(?P<region>[a-z]+-[a-z]+-\d+)")
+
+
+def region_of(url: str) -> str | None:
+    """Return the AWS region a Supabase pooler hostname names, if it names one.
+
+    Direct-connection hostnames (db.<ref>.supabase.co) do not encode a region,
+    so this returns None rather than guessing.
+    """
+    found = _REGION.search(url or "")
+    return found.group("region") if found else None
+
+
+def is_in_india(url: str) -> bool | None:
+    """True/False for a recognised region, None when the region is unreadable."""
+    region = region_of(url)
+    return None if region is None else region in INDIAN_REGIONS

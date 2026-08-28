@@ -10,7 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.db.url import DatabaseUrlError, normalise_database_url, redact
+from app.db.url import (
+    DatabaseUrlError,
+    is_in_india,
+    normalise_database_url,
+    redact,
+    region_of,
+)
 
 _HOST = "aws-0-ap-south-1.pooler.supabase.com:5432/postgres"
 GOOD = f"postgresql://postgres.abcdef:s3cret@{_HOST}"
@@ -105,3 +111,34 @@ class TestRedaction:
             normalise_database_url(url_template.format(secret=secret))
         assert "Got:" in str(caught.value), "this path should quote the URL back"
         assert secret not in str(caught.value)
+
+
+class TestRegion:
+    """Where the data rests, which under the DPDP Act is a legal fact."""
+
+    def test_reads_the_region_from_a_pooler_host(self):
+        assert region_of(GOOD) == "ap-south-1"
+
+    def test_mumbai_is_in_india(self):
+        assert is_in_india(GOOD) is True
+
+    def test_seoul_is_not(self):
+        seoul = GOOD.replace("ap-south-1", "ap-northeast-2")
+        assert region_of(seoul) == "ap-northeast-2"
+        assert is_in_india(seoul) is False
+
+    @pytest.mark.parametrize("region", ["ap-south-1", "ap-south-2"])
+    def test_both_indian_regions_are_recognised(self, region):
+        assert is_in_india(GOOD.replace("ap-south-1", region)) is True
+
+    def test_direct_connection_host_encodes_no_region(self):
+        # db.<ref>.supabase.co names no region; say so rather than guess.
+        direct = "postgresql://postgres:pw@db.abcdef.supabase.co:5432/postgres"
+        assert region_of(direct) is None
+        assert is_in_india(direct) is None
+
+    def test_unknown_is_distinct_from_outside_india(self):
+        # None and False must not collapse: "cannot tell" and "not in India"
+        # call for different responses from an operator.
+        assert is_in_india("") is None
+        assert is_in_india(GOOD.replace("ap-south-1", "eu-west-1")) is False

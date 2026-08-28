@@ -20,7 +20,9 @@ minutes. You need four values out of it:
 | `SUPABASE_SERVICE_KEY` | Settings → API → `service_role` key |
 | `SUPABASE_JWT_SECRET` | Settings → API → JWT Keys → legacy HS256 secret |
 
-Region **Mumbai (ap-south-1)**. Supabase cannot move a project between regions
+Region **Mumbai (ap-south-1)**. Already created one elsewhere? See
+[docs/region-migration.md](docs/region-migration.md) — neither Supabase nor
+Render can change region in place, so both have to be recreated. Supabase cannot move a project between regions
 afterwards, so this is worth getting right on the first attempt: Section 12 puts
 this system under India's DPDP Act, and "where does the data live" is the first
 question at any government legal review. Latency from Rajasthan is the smaller

@@ -15,7 +15,16 @@ services:
     name: poshannetra-api
     runtime: python
     plan: free
-    region: singapore          # closest Render region to Rajasthan
+    # Singapore is the closest region Render offers; it has none in India.
+    # A service's region is fixed at creation -- changing this line does not
+    # move an existing service, it only applies to a newly created one. See
+    # docs/region-migration.md.
+    #
+    # Note for legal review: the API compute runs here, but no data rests here.
+    # Every row lives in Supabase (Mumbai, ap-south-1); this service holds
+    # nothing between requests. Verify with GET /health/db, which reports the
+    # database region.
+    region: singapore
     rootDir: backend
     branch: master
 
