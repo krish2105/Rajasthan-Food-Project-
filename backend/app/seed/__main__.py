@@ -98,8 +98,12 @@ async def _upload_seed_photos(rng: random.Random) -> dict[str, list[str]]:
 
 async def seed(dry_run: bool = False) -> None:
     settings = get_settings()
-    if settings.is_production:
-        sys.exit("refusing to seed: APP_ENV=production")
+    if not settings.seeding_allowed:
+        # A deployed *demo* is meant to carry synthetic data (Section 14 step 1);
+        # a real production database is not.
+        sys.exit(
+            "refusing to seed: APP_ENV=production. Use APP_ENV=demo for a seeded demo deployment."
+        )
 
     rng = random.Random(settings.seed_random_seed)
     today = date.today()

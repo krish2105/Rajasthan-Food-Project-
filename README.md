@@ -90,6 +90,12 @@ free-text IFCT matching after it turned out to map "dal" to *Ragi* and "kela" to
 
 ---
 
+## Deploying
+
+Three frontends on Vercel, the API on Render, database and photo storage on
+Supabase — Section 13's split, every piece on a free tier. See
+[DEPLOY.md](DEPLOY.md); it takes about half an hour and the order matters.
+
 ## Running it
 
 **Prerequisites.** Python 3.12+, [uv](https://docs.astral.sh/uv/), and a

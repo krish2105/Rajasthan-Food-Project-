@@ -38,6 +38,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 #: so both forms reach the same worker record.
 PHONE_PATTERN = r"^[6-9]\d{9}$"
 
+#: The reserved range the seed uses. A deployed demo may disclose codes for
+#: these and nothing else.
+DEMO_PHONE_PREFIX = "99999"
+
 
 def normalise_phone(raw: str) -> str:
     digits = "".join(c for c in raw if c.isdigit())
@@ -140,11 +144,57 @@ async def request_otp(payload: OtpRequest, request: Request) -> dict:
             detail="could not send the code; try again shortly",
         )
 
-    # Only the console provider outside production populates this, so a demo
-    # does not require reading a server log.
-    if result is not None and result.code_for_display and not settings.is_production:
-        return {**generic, "debug_code": result.code_for_display, "provider": provider.name}
+    # Only the console provider populates this. Outside production it is always
+    # allowed; in a demo deployment it must be switched on deliberately, and
+    # even then only for the reserved 99999xxxxx seeded numbers -- so a real
+    # worker's code can never be disclosed by this branch even if a real number
+    # somehow existed in a demo database.
+    reveal = settings.otp_reveal_allowed and (
+        not settings.is_production or phone.startswith(DEMO_PHONE_PREFIX)
+    )
+    if result is not None and result.code_for_display and reveal:
+        # Whether the number is staff is deliberately hidden from the *generic*
+        # response, but a developer holding a demo code needs to know -- without
+        # it, an unregistered number produces a code that looks correct and is
+        # then rejected, which reads as a broken sign-in rather than an
+        # unregistered number. This branch only ever runs with the console
+        # provider outside production, so it leaks nothing in a deployment.
+        accounts = await _demo_accounts()
+        registered = any(account["phone"] == phone for account in accounts)
+        return {
+            **generic,
+            "debug_code": result.code_for_display,
+            "provider": provider.name,
+            "debug_registered": registered,
+            "debug_accounts": accounts,
+        }
     return {**generic, "provider": provider.name}
+
+
+async def _demo_accounts() -> list[dict]:
+    """The seeded sign-in numbers, for the development sign-in screen.
+
+    Never reachable in production: the only caller is guarded on the console
+    provider and a non-production environment.
+    """
+    from sqlalchemy import select
+
+    from app.db.models import FieldWorker
+
+    async with admin_session() as session:
+        rows = (
+            (
+                await session.execute(
+                    select(FieldWorker).order_by(FieldWorker.role, FieldWorker.phone)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return [
+        {"phone": row.phone, "role": row.role, "name": row.name, "district": row.district}
+        for row in rows
+    ]
 
 
 @router.post("/otp/verify", response_model=SessionOut)

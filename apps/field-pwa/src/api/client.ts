@@ -203,12 +203,27 @@ function toWorker(body: SessionResponse): Worker {
   };
 }
 
+export interface DemoAccount {
+  phone: string;
+  role: string;
+  name: string;
+  district: string | null;
+}
+
 export interface OtpRequestResult {
   expiresIn: number;
   messageHi: string;
   messageEn: string;
   /** Only present outside production with the console provider, for demos. */
   debugCode?: string;
+  /**
+   * Whether the number belongs to staff. Development only -- the API will not
+   * say this in its public response, because that would let anyone enumerate
+   * which numbers belong to Anganwadi workers. But without it a demo hands you
+   * a correct code for an unregistered number and then rejects it.
+   */
+  debugRegistered?: boolean;
+  debugAccounts?: DemoAccount[];
 }
 
 export async function requestOtp(phone: string): Promise<OtpRequestResult> {
@@ -217,12 +232,16 @@ export async function requestOtp(phone: string): Promise<OtpRequestResult> {
     message_hi: string;
     message_en: string;
     debug_code?: string;
+    debug_registered?: boolean;
+    debug_accounts?: DemoAccount[];
   }>("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }) });
   return {
     expiresIn: body.expires_in,
     messageHi: body.message_hi,
     messageEn: body.message_en,
     debugCode: body.debug_code,
+    debugRegistered: body.debug_registered,
+    debugAccounts: body.debug_accounts,
   };
 }
 

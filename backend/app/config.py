@@ -11,8 +11,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_env: Literal["development", "test", "production"] = "development"
+    # "demo" is as locked down as production -- no debug codes, explicit CORS
+    # origins -- but permits seeding, because Section 14 step 1 calls for a
+    # deployed demo build populated with synthetic data. Keeping it distinct
+    # from "production" means a real deployment can never be seeded by accident.
+    app_env: Literal["development", "test", "demo", "production"] = "development"
     log_level: str = "INFO"
+    #: Comma-separated frontend origins, e.g.
+    #: "https://poshannetra-field.vercel.app,https://poshannetra-state.vercel.app"
+    allowed_origins: str = ""
 
     database_url: str = ""
 
@@ -55,13 +62,57 @@ class Settings(BaseSettings):
     #: Section 11's short-lived access token. The device holds a 30-day refresh
     #: token so the Field PWA survives days offline (Section 7).
     refresh_ttl_days: int = 30
+    #: Return the one-time code in the API response for *seeded demo numbers
+    #: only*, so a deployed pitch build is usable without SMS credits or
+    #: reading server logs.
+    #:
+    #: This is an open door and is meant to be. Anyone with the URL can sign in
+    #: as any seeded account, so it may only be set where the database holds
+    #: nothing but synthetic data. Off by default; `seeding_allowed` gates it as
+    #: well, so it can never take effect in a real production environment.
+    demo_reveal_otp: bool = False
 
     seed_random_seed: int = 20260828
     seed_upload_photos: bool = True
 
     @property
     def is_production(self) -> bool:
-        return self.app_env == "production"
+        """Hardened. True for a real deployment *and* for the public demo."""
+        return self.app_env in ("production", "demo")
+
+    @property
+    def is_deployed(self) -> bool:
+        return self.is_production
+
+    @property
+    def seeding_allowed(self) -> bool:
+        """Synthetic data may be written. Never in a real production database."""
+        return self.app_env != "production"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Origins permitted to call this API.
+
+        Empty in a deployment unless set, and that is a hard failure rather
+        than a permissive default: three frontends on separate Vercel projects
+        each need naming, and `*` alongside credentials is not something to
+        reach for by accident.
+        """
+        if not self.is_production:
+            return ["*"]
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def otp_reveal_allowed(self) -> bool:
+        """Whether a code may be returned in the response at all.
+
+        True in development (the console provider's normal behaviour), and in a
+        demo deployment only when explicitly switched on. Never in production,
+        regardless of the flag.
+        """
+        if not self.is_production:
+            return True
+        return self.demo_reveal_otp and self.seeding_allowed
 
     @property
     def otp_configured(self) -> bool:

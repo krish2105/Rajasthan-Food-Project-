@@ -29,6 +29,8 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [registered, setRegistered] = useState<boolean | null>(null);
+  const [accounts, setAccounts] = useState<api.DemoAccount[]>([]);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   const PHONE_LENGTH = 10;
@@ -59,6 +61,8 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
       const result = await api.requestOtp(phone.trim());
       setSecondsLeft(result.expiresIn);
       setDemoCode(result.debugCode ?? null);
+      setRegistered(result.debugRegistered ?? null);
+      setAccounts(result.debugAccounts ?? []);
       setStage("code");
       setCode("");
     } catch (err) {
@@ -174,12 +178,57 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
             {/* Shown only when the backend is using the console provider outside
                 production, so a demo does not require reading a server log. A
                 real SMS provider never populates this. */}
-            {demoCode && (
+            {demoCode && registered !== false && (
               <div className="banner banner--info" role="status">
                 <CheckIcon size={20} />
                 <span className="banner__body">
                   {t("otpDemoCode")}: <strong className="numeric">{demoCode}</strong>
                 </span>
+              </div>
+            )}
+
+            {/* The number is not staff, so the code will be refused however
+                correctly it is typed. Development only; a real SMS provider
+                never returns this, and the API will not reveal registration in
+                its public response. */}
+            {registered === false && (
+              <div className="banner banner--offline" role="status">
+                <AlertIcon size={20} />
+                <div className="banner__body">
+                  <strong className="banner__title">{t("notRegistered")}</strong>
+                  <div>{t("notRegisteredHelp")}</div>
+                  <ul style={{ margin: "var(--space-2) 0 0", paddingLeft: "1.1rem" }}>
+                    {accounts
+                      .filter((account) => account.role === "field_worker")
+                      .map((account) => (
+                        <li key={account.phone} style={{ marginBottom: "var(--space-1)" }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhone(account.phone);
+                              setStage("phone");
+                              setRegistered(null);
+                              setError(null);
+                            }}
+                            className="numeric"
+                            style={{
+                              background: "none",
+                              border: 0,
+                              padding: 0,
+                              color: "var(--color-accent)",
+                              font: "inherit",
+                              textDecoration: "underline",
+                              cursor: "pointer",
+                              minHeight: "var(--touch-min)",
+                            }}
+                          >
+                            {account.phone}
+                          </button>{" "}
+                          — {account.name}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
               </div>
             )}
 

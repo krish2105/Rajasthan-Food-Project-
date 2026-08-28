@@ -56,6 +56,11 @@ export const strings = {
   ),
   changeNumber: k("नंबर बदलें", "Change number"),
   otpDemoCode: k("डेमो कोड", "Demo code"),
+  notRegistered: k("यह नंबर दर्ज नहीं है", "This number is not registered"),
+  notRegisteredHelp: k(
+    "कोड बना, लेकिन साइन इन नहीं होगा। नीचे दिए नंबरों में से कोई चुनें:",
+    "A code was generated, but sign-in will refuse it. Use one of these:",
+  ),
   sessionExpired: k(
     "सत्र समाप्त हो गया — कृपया दोबारा साइन इन करें। आपका सुरक्षित काम नहीं जाएगा।",
     "Your session ended — please sign in again. Your saved work is not lost.",

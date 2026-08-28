@@ -540,3 +540,47 @@ async def test_state_admin_cannot_reprocess(client, fixtures, auth) -> None:
         headers=auth(fixtures["workers"]["5550000020"]),
     )
     assert r.status_code == 403
+
+
+# --------------------------------------------------------------------------
+# Deployment configuration (Phase 7 groundwork)
+# --------------------------------------------------------------------------
+
+
+def test_cors_is_open_in_development_only() -> None:
+    from app.config import Settings
+
+    assert Settings(app_env="development").cors_origins == ["*"]
+
+
+def test_a_deployment_must_name_its_origins() -> None:
+    """This computed to an empty list in production, which would have blocked
+    all three frontends the moment anything was deployed."""
+    from app.config import Settings
+
+    named = Settings(
+        app_env="production",
+        allowed_origins="https://a.vercel.app, https://b.vercel.app",
+    )
+    assert named.cors_origins == ["https://a.vercel.app", "https://b.vercel.app"]
+    assert Settings(app_env="production").cors_origins == []
+
+
+def test_the_demo_environment_is_as_hardened_as_production() -> None:
+    """`demo` exists so a deployed pitch build can carry synthetic data. It must
+    not be a softer security posture -- no debug codes, explicit CORS."""
+    from app.config import Settings
+
+    demo = Settings(app_env="demo")
+    assert demo.is_production is True
+    assert demo.cors_origins == []
+
+
+def test_only_the_demo_environment_may_be_seeded() -> None:
+    """Section 14 step 1 wants a seeded demo; a real production database must
+    never receive synthetic children."""
+    from app.config import Settings
+
+    assert Settings(app_env="demo").seeding_allowed is True
+    assert Settings(app_env="development").seeding_allowed is True
+    assert Settings(app_env="production").seeding_allowed is False

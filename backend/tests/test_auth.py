@@ -98,14 +98,49 @@ async def test_a_country_code_reaches_the_same_worker(client, worker_phone) -> N
 
 
 async def test_an_unregistered_number_gets_the_same_reply(client, worker_phone) -> None:
-    """Otherwise this endpoint enumerates which numbers belong to staff."""
+    """Otherwise this endpoint enumerates which numbers belong to staff.
+
+    The `debug_*` keys are excluded from the comparison because they only exist
+    under the console provider outside production. In a deployment the provider
+    is a real one, so they are never emitted at all -- see the test below.
+    """
     registered = await client.post("/auth/otp/request", json={"phone": worker_phone})
     await clear_throttle()
     unknown = await client.post("/auth/otp/request", json={"phone": UNKNOWN_PHONE})
 
     assert registered.status_code == unknown.status_code == 202
-    strip = lambda body: {k: v for k, v in body.items() if k != "debug_code"}  # noqa: E731
-    assert strip(registered.json()) == strip(unknown.json())
+
+    def public(body: dict) -> dict:
+        return {k: v for k, v in body.items() if not k.startswith("debug_")}
+
+    assert public(registered.json()) == public(unknown.json())
+
+
+async def test_development_says_whether_a_number_is_registered(client, worker_phone) -> None:
+    """Only in development, and only with the console provider.
+
+    Without this the demo is actively misleading: an unregistered number gets a
+    code that is genuinely correct, typing it fails, and the sign-in screen
+    looks broken rather than the number looking unregistered. Found by using it.
+    """
+    registered = (await client.post("/auth/otp/request", json={"phone": worker_phone})).json()
+    await clear_throttle()
+    unknown = (await client.post("/auth/otp/request", json={"phone": UNKNOWN_PHONE})).json()
+
+    assert registered["debug_registered"] is True
+    assert unknown["debug_registered"] is False
+    # And it names the numbers that do work, so a demo is not a guessing game.
+    assert any(a["phone"] == worker_phone for a in unknown["debug_accounts"])
+
+
+async def test_no_debug_fields_are_emitted_in_production(client, worker_phone, monkeypatch) -> None:
+    """The registration hint is a development affordance. In a deployment it
+    would be exactly the enumeration oracle the generic response avoids."""
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "app_env", "production")
+    body = (await client.post("/auth/otp/request", json={"phone": worker_phone})).json()
+    assert not any(key.startswith("debug_") for key in body)
 
 
 async def test_a_correct_code_for_an_unregistered_number_still_fails(client, fixtures) -> None:
@@ -433,3 +468,65 @@ async def test_msg91_adds_the_country_code_and_never_sends_the_code_in_a_log(
     assert captured["json"]["otp"] == "123456"
     assert captured["json"]["otp_expiry"] == 5
     assert captured["headers"]["authkey"] == "k"
+
+
+# --------------------------------------------------------------------------
+# The deployed demo
+# --------------------------------------------------------------------------
+
+
+async def test_a_demo_deployment_can_reveal_codes_for_seeded_numbers(
+    client, fixtures, monkeypatch
+) -> None:
+    """Section 14 step 1 calls for a deployed demo build. With no SMS credits,
+    a reviewer would otherwise have to read Render's logs to sign in.
+
+    This is an open door by design, which is why it is off by default, gated on
+    a demo environment, and restricted to the reserved seeded range."""
+    from app.config import get_settings
+    from app.db.models import FieldWorker
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "demo")
+    monkeypatch.setattr(settings, "demo_reveal_otp", True)
+
+    async with admin_session() as session:
+        async with session.begin():
+            await session.execute(
+                update(FieldWorker)
+                .where(FieldWorker.phone == "5550000001")
+                .values(phone="9999900001")
+            )
+
+    body = (await client.post("/auth/otp/request", json={"phone": "9999900001"})).json()
+    assert body.get("debug_code")
+
+
+async def test_a_demo_never_reveals_a_code_for_a_number_outside_the_seeded_range(
+    client, fixtures, monkeypatch
+) -> None:
+    """So a real worker's code can never be disclosed, even if a real number
+    somehow ended up in a demo database."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "demo")
+    monkeypatch.setattr(settings, "demo_reveal_otp", True)
+
+    body = (await client.post("/auth/otp/request", json={"phone": "9876500001"})).json()
+    assert "debug_code" not in body
+
+
+async def test_production_never_reveals_a_code_however_it_is_configured(
+    client, fixtures, monkeypatch
+) -> None:
+    """The flag is not a production override. `seeding_allowed` is false there,
+    so the reveal cannot be switched on by a stray environment variable."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "demo_reveal_otp", True)
+
+    body = (await client.post("/auth/otp/request", json={"phone": "9999900001"})).json()
+    assert "debug_code" not in body

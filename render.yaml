@@ -1,0 +1,113 @@
+# Render blueprint for the PoshanNetra API (master prompt, Section 13).
+#
+# Only the backend lives here. The three frontends deploy to Vercel and the
+# database and photo storage to Supabase, which is Section 13's split and the
+# reason this file declares no database of its own: Render's free Postgres
+# expires after 30 days, and Supabase additionally provides the Storage bucket
+# and the row-level security this system's whole authorisation model rests on.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> point at this repository.
+# Then fill the secrets marked `sync: false` in the dashboard; they are
+# deliberately not in this file.
+
+services:
+  - type: web
+    name: poshannetra-api
+    runtime: python
+    plan: free
+    region: singapore          # closest Render region to Rajasthan
+    rootDir: backend
+    branch: master
+
+    buildCommand: pip install --upgrade pip && pip install -e .
+
+    # Alembic runs before the new instance takes traffic, so a release never
+    # serves a schema it was not built for. Render rolls back if this fails.
+    preDeployCommand: alembic upgrade head
+
+    # Two workers is the sensible ceiling on Render's free 512 MB instance:
+    # each holds its own connection pool, and Supabase's free tier is not
+    # generous with connections either. The long timeout is for plate-photo
+    # uploads over a rural connection.
+    startCommand: >
+      gunicorn app.main:app
+      --worker-class uvicorn.workers.UvicornWorker
+      --workers 2
+      --bind 0.0.0.0:$PORT
+      --timeout 120
+      --access-logfile -
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+
+      # "demo" is as hardened as production -- no debug codes, explicit CORS --
+      # but permits seeding, which Section 14 step 1 asks for. Change to
+      # "production" once real data is involved, and the seed script will then
+      # refuse to run.
+      - key: APP_ENV
+        value: demo
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Every frontend origin, comma separated. Empty means CORS blocks all
+      # three apps, so this is not optional.
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # Supabase: session pooler URI (port 5432, not the transaction pooler),
+      # rewritten to postgresql+asyncpg://. See docs/phase1-supabase-setup.md.
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: plate-photos
+      - key: STORAGE_MODE
+        value: rls
+
+      # Section 11's short-lived access token; the 30-day refresh token is what
+      # lets the Field PWA survive days offline (Section 7).
+      - key: JWT_TTL_SECONDS
+        value: "3600"
+      - key: REFRESH_TTL_DAYS
+        value: "30"
+
+      # Sign-in delivery. "console" logs the code instead of sending it, which
+      # is right for a demo with no SMS credits; switch to msg91 and fill the
+      # three keys below once a DLT template is approved.
+      - key: OTP_PROVIDER
+        value: console
+
+      # Returns the one-time code in the response for the seeded 99999xxxxx
+      # numbers, so a reviewer can sign in without SMS credits or reading logs.
+      #
+      # This is an open door and is meant to be: anyone with the URL can sign
+      # in as any seeded account. Only ever set it while the database holds
+      # nothing but synthetic data. Setting APP_ENV=production disables it
+      # regardless of this value.
+      - key: DEMO_REVEAL_OTP
+        value: "true"
+      - key: MSG91_AUTHKEY
+        sync: false
+      - key: MSG91_TEMPLATE_ID
+        sync: false
+      - key: MSG91_SENDER
+        sync: false
+
+      # Section 4's zero-paid-API constraint. "mock" spends nothing; set to
+      # gemini and supply a free-tier key to run real recognition.
+      - key: AI_ENABLED
+        value: "true"
+      - key: AI_PROVIDER
+        value: mock
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

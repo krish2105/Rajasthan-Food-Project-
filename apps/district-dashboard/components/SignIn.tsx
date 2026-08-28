@@ -14,6 +14,13 @@ import { useState } from "react";
  * proved who they are.
  */
 
+interface DemoAccount {
+  phone: string;
+  role: string;
+  name: string;
+  district: string | null;
+}
+
 interface Props {
   title: string;
   subtitle: string;
@@ -29,6 +36,8 @@ export function SignIn({ title, subtitle, reason, onSignedIn }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(reason ?? null);
   const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [registered, setRegistered] = useState<boolean | null>(null);
+  const [accounts, setAccounts] = useState<DemoAccount[]>([]);
 
   const post = async (path: string, body: unknown) => {
     const response = await fetch(path, {
@@ -50,6 +59,12 @@ export function SignIn({ title, subtitle, reason, onSignedIn }: Props) {
     try {
       const result = await post("/auth/start", { phone: phone.trim() });
       setDemoCode(result.debug_code ?? null);
+      // Present only in development. The API deliberately will not say whether
+      // a number is registered in its public response, but without knowing here
+      // a demo hands you a correct code for an unregistered number and then
+      // rejects it, which looks like a broken sign-in.
+      setRegistered(result.debug_registered ?? null);
+      setAccounts(result.debug_accounts ?? []);
       setStage("code");
       setOtp("");
     } catch (err) {
@@ -147,10 +162,58 @@ export function SignIn({ title, subtitle, reason, onSignedIn }: Props) {
               {/* Populated only by the console provider outside production, so
                   a demo does not require reading a server log. A real SMS
                   provider never returns the code. */}
-              {demoCode && (
+              {demoCode && registered !== false && (
                 <p className="note" style={{ marginBottom: "var(--space-4)" }}>
                   Demo code: <strong className="num">{demoCode}</strong>
                 </p>
+              )}
+
+              {/* The number is not staff, so the code will be refused however
+                  correctly it is typed. Saying so, and naming the accounts that
+                  do work, turns a dead end into a two-second fix. */}
+              {registered === false && (
+                <div
+                  className="note"
+                  style={{ marginBottom: "var(--space-4)", borderLeftColor: "var(--moderate)" }}
+                >
+                  <strong style={{ color: "var(--moderate)" }}>
+                    {phone} is not a registered account.
+                  </strong>
+                  <div style={{ marginTop: "var(--space-2)" }}>
+                    A code was generated, but sign-in will refuse it. Use one of
+                    the seeded accounts:
+                  </div>
+                  <ul style={{ margin: "var(--space-3) 0 0", paddingLeft: "1.1rem" }}>
+                    {accounts.map((account) => (
+                      <li key={account.phone} style={{ marginBottom: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhone(account.phone);
+                            setStage("phone");
+                            setRegistered(null);
+                            setError(null);
+                          }}
+                          className="num"
+                          style={{
+                            background: "none",
+                            border: 0,
+                            padding: 0,
+                            color: "var(--indigo)",
+                            font: "inherit",
+                            fontFamily: "var(--font-mono)",
+                            textDecoration: "underline",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {account.phone}
+                        </button>{" "}
+                        — {account.role.replace(/_/g, " ")}
+                        {account.district ? `, ${account.district}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               <label style={{ display: "block" }}>

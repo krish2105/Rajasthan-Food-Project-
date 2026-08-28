@@ -162,4 +162,4 @@ def build_provider() -> OtpProvider:
             template_id=settings.msg91_template_id,
             sender=settings.msg91_sender or None,
         )
-    return ConsoleProvider(reveal=not settings.is_production)
+    return ConsoleProvider(reveal=settings.otp_reveal_allowed)
