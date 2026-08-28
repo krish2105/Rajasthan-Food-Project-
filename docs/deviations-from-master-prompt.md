@@ -236,3 +236,27 @@ path, one busy afternoon would permanently strand a day's evidence.
 children, corrections should be append-only amendments with an audit trail
 (Phase 6+), not silent in-place edits. The absence is deliberate; the test suite
 asserts it.
+
+
+## Supabase project hardening (migration 0005)
+
+Supabase's database linter flagged two functions on the deployed project. Both
+are fixed in migration `0005`, so a fresh deployment starts hardened rather than
+relying on anyone remembering to repeat the fix.
+
+`app.claim` had a mutable `search_path`. It is called by every RLS policy in
+migration 0002, so it sits inside the authorisation boundary; pinning the path
+removes a shadowing avenue against the one function all access control depends
+on. Verified afterwards on the live database: the claim still resolves and
+cross-district isolation still holds. That check mattered — a broken `claim`
+fails closed, which denies everything silently rather than erroring.
+
+`public.rls_auto_enable` is created by Supabase when a project enables
+"automatic RLS" at creation. It is SECURITY DEFINER and lands in the
+API-exposed `public` schema, so `anon` could invoke it over PostgREST. Nothing
+here calls it — the event trigger runs as the owner — so EXECUTE is revoked.
+
+Three `rls_enabled_no_policy` notices remain and are intended: `otp_codes`,
+`refresh_tokens` and `alembic_version` have RLS enabled with no policies, which
+denies the `authenticated` role everything. Only the owner connection touches
+them, and for one-time codes and session tokens that is the correct posture.
