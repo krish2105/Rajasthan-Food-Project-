@@ -94,6 +94,10 @@ export async function sync(
   running = true;
 
   const outcome: SyncOutcome = { sent: 0, failed: 0, skipped: 0, authFailure: false };
+  // One refresh attempt per run. A refresh that fails will fail for every item,
+  // and hammering it once per queued photograph would turn one bad token into
+  // dozens of requests over a connection that is already poor.
+  let refreshed = false;
   try {
     const now = Date.now();
     const all = await listSendable();
@@ -142,9 +146,28 @@ export async function sync(
         const apiError = error instanceof api.ApiError ? error : null;
 
         if (apiError?.isAuthFailure) {
-          // The token is stale. Every remaining item would fail identically,
-          // so stop rather than burning five attempts each on a queue that
-          // needs the worker to sign in again.
+          // The access token expired. That is the normal state of affairs on
+          // this device, not an emergency: Section 11 makes it one hour long
+          // and Section 7 expects days without a connection, so it will have
+          // lapsed almost every time a worker regains signal.
+          //
+          // Try the refresh token before giving up. Only if that also fails
+          // has the worker genuinely been signed out -- and even then the queue
+          // is untouched, so nothing is lost by asking them to sign in again.
+          if (!refreshed) {
+            refreshed = true;
+            if (await api.refreshSession()) {
+              // Put the item back and let the next pass retry it with the new
+              // token. Its attempt count is not incremented: an expired token
+              // is not the item's fault.
+              await updateItem(item.id, {
+                status: "pending",
+                attempts: item.attempts,
+              } as Partial<QueueItem>);
+              continue;
+            }
+          }
+
           await updateItem(item.id, {
             status: "failed",
             attempts: item.attempts,

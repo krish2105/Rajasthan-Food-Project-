@@ -45,12 +45,29 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     groq_api_key: str = ""
 
+    # --- Phase 6: authentication (Sections 4, 10, 11) ----------------------
+    # "console" is the default so nothing spends SMS credits by accident and CI
+    # never depends on a third party being reachable.
+    otp_provider: Literal["console", "msg91"] = "console"
+    msg91_authkey: str = ""
+    msg91_template_id: str = ""
+    msg91_sender: str = ""
+    #: Section 11's short-lived access token. The device holds a 30-day refresh
+    #: token so the Field PWA survives days offline (Section 7).
+    refresh_ttl_days: int = 30
+
     seed_random_seed: int = 20260828
     seed_upload_photos: bool = True
 
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def otp_configured(self) -> bool:
+        if self.otp_provider == "console":
+            return True
+        return bool(self.msg91_authkey and self.msg91_template_id)
 
     @property
     def ai_configured(self) -> bool:

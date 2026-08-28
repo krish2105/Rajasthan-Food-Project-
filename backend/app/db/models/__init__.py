@@ -5,6 +5,7 @@ inline where they appear.
 """
 
 from app.db.base import Base
+from app.db.models.auth import OtpCode, RefreshToken
 from app.db.models.awc import AWC
 from app.db.models.beneficiary import Beneficiary
 from app.db.models.field_worker import FieldWorker
@@ -22,5 +23,7 @@ __all__ = [
     "GrowthEntry",
     "MenuCompliance",
     "MenuItem",
+    "OtpCode",
+    "RefreshToken",
     "PlateCapture",
 ]

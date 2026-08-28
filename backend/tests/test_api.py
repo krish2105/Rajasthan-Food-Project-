@@ -51,6 +51,13 @@ def _jpeg(colour=(200, 160, 60)) -> bytes:
 # --------------------------------------------------------------------------
 
 
+async def test_the_dev_token_endpoint_is_gone(client, fixtures) -> None:
+    """Phase 6 removed it. An authentication bypass that exists only outside
+    production is still one environment variable away from being live."""
+    r = await client.post("/auth/dev/token", json={"phone": "5550000001"})
+    assert r.status_code == 404
+
+
 async def test_health_is_open(client) -> None:
     r = await client.get("/health")
     assert r.status_code == 200
@@ -62,29 +69,6 @@ async def test_health_db_reports_policy_count(client, fixtures) -> None:
     assert r.status_code == 200
     # If this is ever 0, RLS silently stopped protecting anything.
     assert r.json()["rls_policies"] > 0
-
-
-async def test_dev_token_issues_a_scoped_token(client, fixtures) -> None:
-    r = await client.post("/auth/dev/token", json={"phone": "5550000001"})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["role"] == "field_worker"
-    assert body["awc_code"] == "TEST-A1"
-    assert body["expires_in"] == 3600  # Section 11: short-lived
-
-
-async def test_dev_token_rejects_unknown_phone(client, fixtures) -> None:
-    assert (await client.post("/auth/dev/token", json={"phone": "0000000000"})).status_code == 404
-
-
-async def test_dev_token_is_absent_in_production(client, fixtures, monkeypatch) -> None:
-    """The only thing between a demo convenience and an auth bypass."""
-    from app.config import get_settings
-
-    settings = get_settings()
-    monkeypatch.setattr(settings, "app_env", "production")
-    r = await client.post("/auth/dev/token", json={"phone": "5550000001"})
-    assert r.status_code == 404
 
 
 @pytest.mark.parametrize("path", ["/me", "/awcs", "/beneficiaries", "/captures"])

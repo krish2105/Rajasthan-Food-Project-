@@ -38,8 +38,28 @@ export const strings = {
   signInTitle: k("साइन इन करें", "Sign in"),
   phoneLabel: k("मोबाइल नंबर", "Mobile number"),
   phoneHint: k("वही नंबर जो आंगनवाड़ी में दर्ज है", "The number registered at your centre"),
-  signInAction: k("आगे बढ़ें", "Continue"),
+  signInAction: k("कोड भेजें", "Send code"),
   signInFailed: k("यह नंबर दर्ज नहीं है", "This number is not registered"),
+
+  // --- One-time code ----------------------------------------------------
+  otpLabel: k("6 अंकों का कोड", "6-digit code"),
+  otpSentTo: k("कोड भेजा गया", "Code sent to"),
+  otpHint: k("SMS में आया कोड भरें", "Enter the code from the SMS"),
+  otpVerify: k("साइन इन करें", "Sign in"),
+  otpWrong: k("यह कोड सही नहीं है", "That code is not correct"),
+  otpResend: k("कोड दोबारा भेजें", "Send the code again"),
+  otpResendWait: k("दोबारा भेजने के लिए रुकें", "Wait before sending again"),
+  otpExpiresIn: k("कोड की समय-सीमा", "Code expires in"),
+  otpTooMany: k(
+    "बहुत बार कोशिश हुई। थोड़ी देर बाद फिर कोशिश करें।",
+    "Too many attempts. Try again in a little while.",
+  ),
+  changeNumber: k("नंबर बदलें", "Change number"),
+  otpDemoCode: k("डेमो कोड", "Demo code"),
+  sessionExpired: k(
+    "सत्र समाप्त हो गया — कृपया दोबारा साइन इन करें। आपका सुरक्षित काम नहीं जाएगा।",
+    "Your session ended — please sign in again. Your saved work is not lost.",
+  ),
   signInOffline: k(
     "साइन इन के लिए इंटरनेट ज़रूरी है। एक बार साइन इन करने के बाद ऐप बिना इंटरनेट चलेगा।",
     "Sign in needs internet. After signing in once, the app works without it.",

@@ -31,6 +31,18 @@ describe("design tokens", () => {
     expect(dashboard).toBe(stateAdmin);
   });
 
+  it("keeps the shared sign-in component identical between the apps", () => {
+    // Copied rather than packaged, for the same reason as the tokens: a shared
+    // workspace package was declined for two consumers. This is what stops the
+    // two sign-in screens drifting into two different flows.
+    const here = readFileSync(resolve(__dirname, "..", "components/SignIn.tsx"), "utf8");
+    const there = readFileSync(
+      resolve(__dirname, "..", "../state-admin/components/SignIn.tsx"),
+      "utf8",
+    );
+    expect(here).toBe(there);
+  });
+
   it("define the clinical colours both surfaces report against", () => {
     const body = tokenBody("app/tokens.css");
     for (const token of ["--severe", "--moderate", "--normal", "--reference"]) {

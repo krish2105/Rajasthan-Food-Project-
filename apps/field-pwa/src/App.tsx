@@ -91,11 +91,17 @@ export function App() {
     return startAutoSync((outcome) => {
       refresh();
       if (outcome.authFailure) {
-        // The token expired. Sending the worker back to sign-in is the only
-        // honest response; silently failing forever would look like a network
-        // problem they cannot fix.
+        // The sync engine already tried the refresh token, so reaching here
+        // means the session is genuinely over -- thirty days elapsed, or the
+        // token was revoked. Sending the worker back to sign-in is the only
+        // honest response.
+        //
+        // The queue is deliberately left intact: signing in again drains it.
+        // Clearing a day's photographs because a token lapsed would be the
+        // worst possible reading of Section 7.
         api.clearSession();
         setSignedIn(false);
+        setToast(t("sessionExpired"));
         return;
       }
       if (outcome.sent > 0) setToast(t("syncDone"));

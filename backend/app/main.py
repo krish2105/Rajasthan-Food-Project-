@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import (
-    auth_dev,
+    auth,
     beneficiaries,
     captures,
     growth,
@@ -140,7 +140,7 @@ def create_app() -> FastAPI:
 
     for router in (
         health.router,
-        auth_dev.router,
+        auth.router,
         reference.router,
         beneficiaries.router,
         growth.router,

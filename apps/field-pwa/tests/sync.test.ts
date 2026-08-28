@@ -251,3 +251,70 @@ describe("ApiError classification", () => {
     expect(new api.ApiError("boom", 500).isAuthFailure).toBe(false);
   });
 });
+
+
+describe("token refresh during sync", () => {
+  /**
+   * Section 11 makes the access token last an hour; Section 7 expects days
+   * without a connection. So an expired token is the *normal* state when a
+   * worker regains signal, not an emergency — and treating it as one would
+   * sign them out roughly every time they walked back into coverage.
+   */
+
+  it("refreshes and retries rather than giving up on the first 401", async () => {
+    const refresh = vi.spyOn(api, "refreshSession").mockResolvedValue(true);
+    uploadSpy
+      .mockRejectedValueOnce(new api.ApiError("token expired", 401))
+      .mockResolvedValue({ id: "srv" });
+
+    await enqueue(capture());
+    await sync({ force: true });
+    await sync({ force: true });
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const [stored] = await listQueue();
+    expect(stored?.status).toBe("synced");
+  });
+
+  it("does not count an expired token against the item's attempts", async () => {
+    // The token lapsing is not the photograph's fault, and burning its retry
+    // budget would push it toward the give-up threshold for no reason.
+    vi.spyOn(api, "refreshSession").mockResolvedValue(true);
+    uploadSpy.mockRejectedValueOnce(new api.ApiError("token expired", 401));
+    await enqueue(capture());
+    await sync({ force: true });
+    const [stored] = await listQueue();
+    expect(stored?.attempts).toBe(0);
+  });
+
+  it("reports an auth failure only once the refresh also fails", async () => {
+    vi.spyOn(api, "refreshSession").mockResolvedValue(false);
+    uploadSpy.mockRejectedValue(new api.ApiError("token expired", 401));
+    await enqueue(capture());
+    const outcome = await sync({ force: true });
+    expect(outcome.authFailure).toBe(true);
+  });
+
+  it("keeps the photograph when the session is genuinely over", async () => {
+    // The single most important property here: a lapsed session must never
+    // cost a worker their day's evidence.
+    vi.spyOn(api, "refreshSession").mockResolvedValue(false);
+    uploadSpy.mockRejectedValue(new api.ApiError("token expired", 401));
+    await enqueue(capture());
+    await sync({ force: true });
+    const [stored] = (await listQueue()) as QueuedCapture[];
+    expect(stored?.photoData.byteLength).toBe(512);
+  });
+
+  it("tries the refresh once per run, not once per queued item", async () => {
+    // A refresh that fails will fail for every item; retrying per photograph
+    // turns one bad token into dozens of requests over a poor connection.
+    const refresh = vi.spyOn(api, "refreshSession").mockResolvedValue(false);
+    uploadSpy.mockRejectedValue(new api.ApiError("token expired", 401));
+    await enqueue(capture());
+    await enqueue(capture());
+    await enqueue(capture());
+    await sync({ force: true });
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
