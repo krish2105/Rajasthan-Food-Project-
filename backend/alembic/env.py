@@ -8,13 +8,15 @@ never uses this connection mode (see app/db/session.py).
 from __future__ import annotations
 
 import asyncio
+import sys
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from alembic import context
 from app.config import get_settings
 from app.db.models import Base
+from app.db.url import DatabaseUrlError, normalise_database_url
 
 config = context.config
 if config.config_file_name is not None:
@@ -25,12 +27,14 @@ target_metadata = Base.metadata
 
 def _url() -> str:
     settings = get_settings()
-    if not settings.database_url:
-        raise SystemExit(
-            "DATABASE_URL is not set. Copy .env.example to .env and fill it in "
-            "(see docs/phase1-supabase-setup.md)."
-        )
-    return settings.database_url
+    try:
+        return normalise_database_url(settings.database_url)
+    except DatabaseUrlError as exc:
+        # A misconfigured connection string is the operator's mistake, not a
+        # bug: print the explanation and stop, rather than burying it under an
+        # Alembic traceback.
+        print(f"\n{exc}\n", file=sys.stderr)
+        raise SystemExit(2) from None
 
 
 def run_migrations_offline() -> None:

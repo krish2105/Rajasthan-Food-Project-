@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import get_settings
 from app.core.principal import Principal
+from app.db.url import normalise_database_url
 
 #: Supabase's own non-owner Postgres role. Distinct from our `app_role` claim.
 DB_ROLE = "authenticated"
@@ -41,13 +42,11 @@ DB_ROLE = "authenticated"
 @lru_cache
 def get_engine() -> AsyncEngine:
     settings = get_settings()
-    if not settings.database_url:
-        raise RuntimeError(
-            "DATABASE_URL is not set. Copy .env.example to .env and fill it in "
-            "(see docs/phase1-supabase-setup.md)."
-        )
+    # Raises DatabaseUrlError naming the specific mistake, rather than letting
+    # SQLAlchemy fail forty frames deep without mentioning the variable.
+    url = normalise_database_url(settings.database_url)
     return create_async_engine(
-        settings.database_url,
+        url,
         echo=False,
         pool_pre_ping=True,
         pool_size=5,

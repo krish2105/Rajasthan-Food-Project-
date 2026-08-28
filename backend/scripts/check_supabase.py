@@ -31,6 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
+from app.db.url import DatabaseUrlError, normalise_database_url
 
 OK = "  \033[32mok\033[0m   "
 BAD = "  \033[31mFAIL\033[0m "
@@ -41,24 +42,21 @@ def line(status: str, message: str) -> None:
     print(f"{status} {message}")
 
 
-async def check_database(url: str) -> bool:
-    if not url:
-        line(BAD, "DATABASE_URL is not set")
-        return False
+async def check_database(raw: str) -> tuple[bool, str]:
+    """Returns (ok, normalised_url). The URL is normalised here so the region
+    check below reads the same string the application will actually connect
+    with -- including when the operator pasted Supabase's `psql "..."` line."""
+    try:
+        url = normalise_database_url(raw)
+    except DatabaseUrlError as exc:
+        headline, *detail = str(exc).splitlines()
+        line(BAD, headline)
+        for part in detail:
+            print(f"     {part}")
+        return False, ""
 
-    if "+asyncpg" not in url:
-        line(BAD, "DATABASE_URL must use the postgresql+asyncpg:// scheme")
-        print("       Supabase hands you postgresql://; rewrite the scheme.")
-        return False
-
-    # The transaction pooler breaks `SET LOCAL` semantics, which every RLS
-    # policy in this system depends on.
-    if ":6543" in url:
-        line(BAD, "that is the transaction pooler (port 6543)")
-        print("       Use the SESSION pooler on port 5432. RLS here relies on")
-        print("       SET LOCAL surviving the transaction, which 6543 does not")
-        print("       guarantee.")
-        return False
+    if url != (raw or "").strip().strip("'\""):
+        line(OK, "connection string normalised to the asyncpg session-pooler form")
 
     engine = create_async_engine(
         url, connect_args={"statement_cache_size": 0, "prepared_statement_cache_size": 0}
@@ -90,7 +88,7 @@ async def check_database(url: str) -> bool:
                 line(BAD, f"cannot SET ROLE authenticated: {type(exc).__name__}")
                 print("       Without this the backend stays the table owner and")
                 print("       every RLS policy is silently bypassed.")
-                return False
+                return False, url
 
             has_pgcrypto = (
                 await conn.execute(
@@ -114,10 +112,10 @@ async def check_database(url: str) -> bool:
                 line(OK, f"{tables} tables already present (migrations have run)")
             else:
                 line(WARN, "no tables yet -- run: alembic upgrade head")
-        return True
+        return True, url
     except Exception as exc:  # noqa: BLE001
         line(BAD, f"could not connect: {type(exc).__name__}: {str(exc)[:140]}")
-        return False
+        return False, url
     finally:
         await engine.dispose()
 
@@ -191,8 +189,8 @@ async def main() -> None:
     settings = get_settings()
     print("Checking Supabase configuration\n")
 
-    db_ok = await check_database(settings.database_url)
-    check_region(settings.database_url)
+    db_ok, url = await check_database(settings.database_url)
+    check_region(url)
     jwt_ok = check_jwt_secret(settings.supabase_jwt_secret)
     storage_ok = await check_storage(
         settings.supabase_url, settings.supabase_service_key, settings.supabase_storage_bucket

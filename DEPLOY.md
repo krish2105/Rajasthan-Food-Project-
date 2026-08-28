@@ -51,6 +51,11 @@ from a service you cannot attach a debugger to.
 Render dashboard → **New → Blueprint** → point it at this repository. It reads
 [`render.yaml`](render.yaml) and creates the service.
 
+**Expect the first deploy to fail.** A blueprint creates the service and
+deploys it in the same motion, so that deploy runs before the secrets below
+exist. This is a property of blueprints, not a fault in the build — the log
+will say `configuration incomplete` and list exactly what is missing.
+
 Then fill the values marked `sync: false` in the dashboard — they are
 deliberately not in the repository:
 
@@ -59,8 +64,16 @@ DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET
 ALLOWED_ORIGINS          ← leave until step 3; CORS blocks everything while empty
 ```
 
-Migrations run at startup (`alembic upgrade head &&` in front of gunicorn), so
-the schema is never behind the code. Health check is `/health`.
+…and click **Manual Deploy**. That one succeeds.
+
+`DATABASE_URL` accepts what Supabase gives you: the `postgresql://` scheme is
+rewritten to `postgresql+asyncpg://` for you, and the `psql "…"` wrapper the
+Connect dialog displays is unwrapped. An unfilled `[YOUR-PASSWORD]` placeholder
+and the port-6543 transaction pooler are both refused by name rather than
+accepted into a system that would start cleanly and enforce no access control.
+
+Migrations run at startup, via [`backend/scripts/start.sh`](backend/scripts/start.sh),
+so the schema is never behind the code. Health check is `/health`.
 
 Two free-tier facts shape this: Render's free plan supports neither
 `preDeployCommand` nor Shell access. Migrations therefore run in the start

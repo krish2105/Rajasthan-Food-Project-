@@ -24,19 +24,12 @@ services:
     # Migrations run at startup rather than as a preDeployCommand, because
     # Render's free tier does not support pre-deploy commands.
     #
-    # `alembic upgrade head` is a no-op once the schema is current, so the free
-    # instance re-running it every time it wakes from sleep costs one quick
-    # query. The usual objection to migrating at startup -- several instances
-    # racing each other -- does not apply here, because the free plan runs
-    # exactly one. Revisit this if the service is ever scaled.
-    startCommand: >
-      alembic upgrade head &&
-      gunicorn app.main:app
-      --worker-class uvicorn.workers.UvicornWorker
-      --workers 2
-      --bind 0.0.0.0:$PORT
-      --timeout 120
-      --access-logfile -
+    # The wrapper exists because a blueprint deploys the moment it creates the
+    # service -- before anyone can fill the `sync: false` secrets below. Without
+    # it that first deploy dies inside Alembic and the dashboard shows only
+    # "failed"; with it, the log says which variables are missing and where to
+    # get them.
+    startCommand: ./scripts/start.sh
 
     healthCheckPath: /health
 

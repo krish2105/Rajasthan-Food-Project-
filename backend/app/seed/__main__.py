@@ -36,6 +36,7 @@ from app.db.models import (
     PlateCapture,
 )
 from app.db.session import admin_session, dispose_engine
+from app.db.url import DatabaseUrlError, normalise_database_url
 from app.seed import generate, photos, reference
 from app.storage import supabase_storage as storage
 
@@ -300,11 +301,21 @@ def main() -> None:
     args = parser.parse_args()
     try:
         asyncio.run(_run(args.dry_run))
+    except DatabaseUrlError as exc:
+        # Configuration mistake rather than a failure of the seed itself; the
+        # message names what to fix, so a traceback adds nothing.
+        print(f"\n{exc}\n", file=sys.stderr)
+        sys.exit(2)
     except KeyboardInterrupt:  # pragma: no cover
         sys.exit(130)
 
 
 async def _run(dry_run: bool) -> None:
+    if not dry_run:
+        # Validate before generating: building ~5,000 rows and only then
+        # discovering the connection string is wrong wastes half a minute and
+        # buries the real message under a page of progress output.
+        normalise_database_url(get_settings().database_url)
     try:
         await seed(dry_run=dry_run)
     finally:
