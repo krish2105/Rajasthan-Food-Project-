@@ -38,18 +38,36 @@ DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET
 ALLOWED_ORIGINS          ← leave until step 3; CORS blocks everything while empty
 ```
 
-Migrations run automatically before each release (`preDeployCommand`), so the
-schema is never behind the code. Health check is `/health`.
+Migrations run at startup (`alembic upgrade head &&` in front of gunicorn), so
+the schema is never behind the code. Health check is `/health`.
 
-**Seed the demo data** once the first deploy is green — Render dashboard →
-Shell:
+Two free-tier facts shape this: Render's free plan supports neither
+`preDeployCommand` nor Shell access. Migrations therefore run in the start
+command — a no-op once current, so the instance re-running them when it wakes
+from sleep costs one quick query — and seeding happens from your own machine.
+
+### Seed the demo data — from your laptop, not Render
+
+There is no Shell on the free plan, and none is needed: the seed is an ordinary
+command pointed at the Supabase database.
 
 ```bash
-python -m app.seed
+cd backend
+```
+```bash
+APP_ENV=demo DATABASE_URL='<your Supabase session-pooler URI>' uv run python -m app.seed
 ```
 
-That writes 3 centres, 120 children, 6 months of growth entries and ~5,000
-plate captures. All synthetic (Sections 12, 14).
+Note `APP_ENV=demo` — the script refuses to run under `production`, which is
+what stops synthetic children being written into a real database by accident.
+
+It writes 3 centres, 120 children, 6 months of growth entries and ~5,000 plate
+captures, all synthetic (Sections 12, 14), and prints the prevalence it actually
+achieved rather than one it promises.
+
+If you set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` too, it also uploads the
+placeholder plate images so signed URLs resolve; without them it skips that and
+says so.
 
 ### Free tier, and what it costs you
 
