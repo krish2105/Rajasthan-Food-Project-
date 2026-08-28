@@ -260,3 +260,23 @@ Three `rls_enabled_no_policy` notices remain and are intended: `otp_codes`,
 `refresh_tokens` and `alembic_version` have RLS enabled with no policies, which
 denies the `authenticated` role everything. Only the owner connection touches
 them, and for one-time codes and session tokens that is the correct posture.
+
+
+## Storage policies (migration 0006)
+
+Migration 0002 made Postgres enforce scope; Supabase Storage was enforcing
+nothing. `storage.objects` ships with RLS enabled and no policies, so under
+`STORAGE_MODE=rls` -- where every call carries the caller's own JWT rather than
+the service key -- the first photo upload of a demo would have been refused.
+The bucket did not exist either. Both are now created by migration, so a fresh
+project is correct without anyone remembering a dashboard step.
+
+The object path is `{awc_code}/{beneficiary_id}/{capture_id}.jpg`, so the first
+segment is what the policies match on. Field workers may insert into, and read
+from, their own AWC's prefix only. State admins read everything.
+
+District officials are the one case the path cannot answer, because it encodes
+no district. They are scoped by a subquery against `public.awcs` filtering on
+the district claim -- and that subquery is itself subject to the `awcs` policy
+from 0002. The explicit filter is what a reviewer can verify by reading it; the
+nested policy is what still holds if the explicit one is ever edited carelessly.

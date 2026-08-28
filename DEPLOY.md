@@ -28,7 +28,11 @@ this system under India's DPDP Act, and "where does the data live" is the first
 question at any government legal review. Latency from Rajasthan is the smaller
 half of the argument.
 
-Create a **private** bucket named `plate-photos`.
+The `plate-photos` bucket is **created by migration 0006**, private, together
+with the Storage policies that scope it. Creating it by hand is no longer a
+step — and the migration forces `public = false` even if a bucket of that name
+already exists, because a public bucket means a public URL for every photograph
+taken inside an Anganwadi centre.
 
 ### Check it before touching Render
 
