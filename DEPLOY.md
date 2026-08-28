@@ -20,8 +20,29 @@ minutes. You need four values out of it:
 | `SUPABASE_SERVICE_KEY` | Settings → API → `service_role` key |
 | `SUPABASE_JWT_SECRET` | Settings → API → JWT Keys → legacy HS256 secret |
 
-Region **Mumbai (ap-south-1)**: latency, and data residency under the DPDP Act
-(Section 12). Create a **private** bucket named `plate-photos`.
+Region **Mumbai (ap-south-1)**. Supabase cannot move a project between regions
+afterwards, so this is worth getting right on the first attempt: Section 12 puts
+this system under India's DPDP Act, and "where does the data live" is the first
+question at any government legal review. Latency from Rajasthan is the smaller
+half of the argument.
+
+Create a **private** bucket named `plate-photos`.
+
+### Check it before touching Render
+
+```bash
+cd backend && uv run python scripts/check_supabase.py
+```
+
+It reads the same environment variables the application does, so it verifies
+exactly what the deployment will use: the connection reaches Postgres, it is the
+session pooler rather than the transaction pooler, the `authenticated` role can
+be switched to (every RLS policy depends on that), pgcrypto is present, the JWT
+secret is the symmetric one this build signs with, the bucket exists and is
+private, and the region is Indian.
+
+Every failure it reports is one that would otherwise appear as an opaque 500
+from a service you cannot attach a debugger to.
 
 ---
 
