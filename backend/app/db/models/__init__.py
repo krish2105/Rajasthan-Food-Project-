@@ -8,6 +8,7 @@ from app.db.base import Base
 from app.db.models.awc import AWC
 from app.db.models.beneficiary import Beneficiary
 from app.db.models.field_worker import FieldWorker
+from app.db.models.follow_up import FollowUp
 from app.db.models.growth_entry import GrowthEntry
 from app.db.models.menu import MenuCompliance, MenuItem
 from app.db.models.plate_capture import PlateCapture
@@ -17,6 +18,7 @@ __all__ = [
     "Base",
     "Beneficiary",
     "FieldWorker",
+    "FollowUp",
     "GrowthEntry",
     "MenuCompliance",
     "MenuItem",

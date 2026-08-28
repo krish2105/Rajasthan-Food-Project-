@@ -68,9 +68,7 @@ LATEST_CTE = f"""
 """
 
 _STUNTED = "classification_detail->>'stunting' IN ('stunted','severely_stunted')"
-_UNDERWEIGHT = (
-    "classification_detail->>'underweight' IN ('underweight','severely_underweight')"
-)
+_UNDERWEIGHT = "classification_detail->>'underweight' IN ('underweight','severely_underweight')"
 _WASTED = (
     "classification_detail->>'wasting' "
     "IN ('moderate_acute_malnutrition','severe_acute_malnutrition') "
@@ -116,7 +114,9 @@ async def prevalence(session: AsyncSession, district: str | None) -> dict:
     single column reports only the most severe. Summing the coarse column would
     undercount every condition except the worst one present.
     """
-    sql = LATEST_CTE + f"""
+    sql = (
+        LATEST_CTE
+        + f"""
         SELECT
           count(*)                                                   AS measured,
           count(*) FILTER (WHERE {_STUNTED})                         AS stunted,
@@ -132,6 +132,7 @@ async def prevalence(session: AsyncSession, district: str | None) -> dict:
           count(*) FILTER (WHERE standard_used = 'who_2007_5_19y')   AS school_age
         FROM latest
     """
+    )
     row = (await session.execute(text(sql), {"district": district})).one()
     data = dict(row._mapping)
     measured = data["measured"] or 0
@@ -142,9 +143,7 @@ async def prevalence(session: AsyncSession, district: str | None) -> dict:
     return data
 
 
-async def distribution(
-    session: AsyncSession, district: str | None, index: str = "haz"
-) -> dict:
+async def distribution(session: AsyncSession, district: str | None, index: str = "haz") -> dict:
     """Histogram of z-scores for one index, plus the cohort mean.
 
     This is what the pitch surface leads with. A prevalence percentage says how
@@ -160,11 +159,14 @@ async def distribution(
     }[index]
     buckets = int((DIST_MAX - DIST_MIN) / DIST_STEP)
 
-    sql = LATEST_CTE + f"""
+    sql = (
+        LATEST_CTE
+        + f"""
         SELECT width_bucket({column}, :lo, :hi, :buckets) AS bucket, count(*) AS n
         FROM latest WHERE {column} IS NOT NULL
         GROUP BY bucket ORDER BY bucket
     """
+    )
     rows = (
         await session.execute(
             text(sql),
@@ -199,7 +201,9 @@ async def distribution(
 
 async def centres(session: AsyncSession, district: str | None) -> list[dict]:
     """Per-centre rollup, including coordinates for the map."""
-    sql = LATEST_CTE + f"""
+    sql = (
+        LATEST_CTE
+        + f"""
         SELECT a.awc_code, a.name_en, a.name_hi, a.centre_type,
                a.district, a.district_hi, a.block, a.block_hi,
                a.latitude, a.longitude,
@@ -222,6 +226,7 @@ async def centres(session: AsyncSession, district: str | None) -> list[dict]:
         GROUP BY a.awc_code
         ORDER BY a.district, a.awc_code
     """
+    )
     rows = (await session.execute(text(sql), {"district": district})).all()
 
     result = []
