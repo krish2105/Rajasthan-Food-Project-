@@ -30,6 +30,11 @@ let token: string | null = null;
 async function ensureToken(): Promise<string> {
   if (token) return token;
   const response = await fetch("/session", { cache: "no-store" });
+  if (response.status === 401) {
+    // No session. Distinct from a failure, because the caller shows a sign-in
+    // screen for one and an error page for the other.
+    throw new ApiError("not signed in", 401);
+  }
   if (!response.ok) throw new ApiError("could not start a session", response.status);
   const body = (await response.json()) as { token: string };
   token = body.token;

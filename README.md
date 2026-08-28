@@ -4,11 +4,11 @@ AI-assisted meal monitoring for Anganwadi centres and Ashram schools in the
 Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 [`poshannetra-ai-master-prompt.md`](poshannetra-ai-master-prompt.md).
 
-> **Phases 1–5 of 7 are complete.** Data model and FastAPI skeleton (Section 16
+> **Phases 1–6 of 7 are complete.** Data model and FastAPI skeleton (Section 16
 > step 1); AI pipeline and evaluation harness (step 2); the offline-first Field
 > Capture PWA (step 3); the District Dashboard (step 4); the State Admin review
-> surface (step 5). Phases 6 (phone-OTP auth) and 7 (deployment) have not been
-> started.
+> surface (step 5); phone-OTP authentication across all three apps (step 6).
+> Phase 7 (deployment) has not been started.
 
 ---
 
@@ -31,11 +31,12 @@ Banswara–Dungarpur tribal belt of Rajasthan. Full specification:
 | Report aggregation — `/reports/state`, `/reports/district`, `/compliance` | done |
 | State Admin review surface — distribution hero, 3D map, PDF export | done |
 | District Dashboard — follow-up worklist, append-only response trail | done |
-| Test suite | 410 backend + 119 PWA + 24 admin + 18 dashboard passing |
+| Phone-OTP auth + refresh rotation across all three apps | done |
+| Test suite | 440 backend + 128 PWA + 24 admin + 30 dashboard passing |
 
 ### Not in these phases, by design
 
-phone-OTP auth (Phase 6) · deployment (Phase 7).
+deployment (Phase 7).
 
 The AI pipeline defaults to `AI_PROVIDER=mock` — deterministic, offline, and it
 spends no free-tier quota. Real recognition needs a Gemini key; see
@@ -88,6 +89,12 @@ free-text IFCT matching after it turned out to map "dal" to *Ragi* and "kela" to
 *plantain* with perfect confidence.
 
 ---
+
+## Deploying
+
+Three frontends on Vercel, the API on Render, database and photo storage on
+Supabase — Section 13's split, every piece on a free tier. See
+[DEPLOY.md](DEPLOY.md); it takes about half an hour and the order matters.
 
 ## Running it
 
@@ -256,10 +263,14 @@ Section 15 lists the product's limitations. These are Phase 1's own:
   confirmed API.** `poshan_tracker_id` is a nullable external reference built
   from publicly documented field categories. Section 2's caveat stands: it needs
   validating with NIC/WCD before the pilot goes live.
-- **Authentication is a development stub.** `POST /auth/dev/token` mints a token
-  for any known phone number with no verification, and returns 404 when
-  `APP_ENV=production`. The *scope* model is real and tested; only the identity
-  source is stubbed, and Phase 6 replaces it without touching the policies.
+- **SMS delivery is unverified.** Sign-in is phone OTP with hashed codes,
+  expiry, attempt limits and throttling, and the MSG91 client is complete — but
+  it has never sent a real message, because that needs an account, credits and a
+  DLT-approved template. The default provider logs the code instead. See
+  [docs/phase6-auth-setup.md](docs/phase6-auth-setup.md).
+- **No admin surface for revoking a lost phone.** The refresh token lasts 30
+  days so the Field PWA survives being offline; revoking one today means a SQL
+  statement.
 - **Storage RLS depends on the legacy HS256 JWT secret** being available on the
   Supabase project. Where it is not, `STORAGE_MODE=service` falls back to
   application-level scope checks for Storage only. Postgres RLS is unaffected.

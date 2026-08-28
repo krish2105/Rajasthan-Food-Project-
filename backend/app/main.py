@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import (
-    auth_dev,
+    auth,
     beneficiaries,
     captures,
     growth,
@@ -113,15 +113,24 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Phases 3-5 add three separate frontends on Vercel. Origins are wide open
-    # in development only; Phase 7 must pin them before anything is deployed.
+    # Three frontends on separate Vercel projects, so a deployment must name
+    # each origin explicitly via ALLOWED_ORIGINS. Wide open in development only.
+    #
+    # This used to compute to an empty list in production, which would have
+    # blocked all three apps the moment anything was deployed -- the sort of
+    # thing that only shows up on the day it matters.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if not settings.is_production else [],
+        allow_origins=settings.cors_origins,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if settings.is_production and not settings.cors_origins:
+        logger.warning(
+            "ALLOWED_ORIGINS is empty: every browser request from the frontends "
+            "will be blocked by CORS. Set it to the deployed origins."
+        )
 
     @app.exception_handler(HTTPException)
     async def _http_exc(_: Request, exc: HTTPException) -> JSONResponse:
@@ -140,7 +149,7 @@ def create_app() -> FastAPI:
 
     for router in (
         health.router,
-        auth_dev.router,
+        auth.router,
         reference.router,
         beneficiaries.router,
         growth.router,

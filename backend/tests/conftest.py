@@ -196,14 +196,21 @@ async def fixtures(database) -> dict:
         GrowthEntry,
         MenuCompliance,
         MenuItem,
+        OtpCode,
         PlateCapture,
+        RefreshToken,
     )
     from app.db.session import admin_session
 
     today = date.today()
     async with admin_session() as session:
         async with session.begin():
+            # OTP codes and refresh tokens are cleared too: the request
+            # throttle counts recent rows per phone, so rows left by a previous
+            # test would 429 the next one before it did anything.
             for model in (
+                RefreshToken,
+                OtpCode,
                 MenuCompliance,
                 PlateCapture,
                 GrowthEntry,
@@ -278,7 +285,14 @@ async def fixtures(database) -> dict:
 
 @pytest.fixture
 def token_for():
-    """Mint a JWT for a fixture worker, exactly as /auth/dev/token would."""
+    """Mint a JWT for a fixture worker directly.
+
+    Phase 6 deleted the development token endpoint, so tests no longer obtain a
+    token over HTTP. Calling `mint_token` produces exactly what /auth/otp/verify
+    produces -- same claims, same signature -- without putting five hundred
+    tests through an OTP round trip. The OTP flow itself is covered in
+    tests/test_auth.py.
+    """
     from app.core.principal import Principal, Role
     from app.core.security import mint_token
 

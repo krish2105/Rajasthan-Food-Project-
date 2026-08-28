@@ -5,6 +5,7 @@ import * as api from "@/lib/api";
 import { ReportTab } from "@/components/ReportTab";
 import { Worklist } from "@/components/Worklist";
 import type { Scope } from "@/lib/types";
+import { SignIn } from "@/components/SignIn";
 
 /**
  * District Dashboard (Section 9.2).
@@ -19,24 +20,43 @@ import type { Scope } from "@/lib/types";
  */
 
 type Tab = "worklist" | "report";
+type Status = "checking" | "signed-out" | "ready" | "error";
 
 export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("worklist");
   const [scope, setScope] = useState<Scope | null>(null);
+  const [status, setStatus] = useState<Status>("checking");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void api
       .getScope()
-      .then(setScope)
-      .catch((err) =>
-        setError(
-          err instanceof api.ApiError && err.status >= 500
-            ? "The API is not reachable. Start the backend and reload."
-            : "Could not establish a session.",
-        ),
-      );
+      .then((result) => {
+        setScope(result);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        // 401 means no session, not a broken deployment. Those need different
+        // screens: one is a door, the other is a fault.
+        if (err instanceof api.ApiError && (err.status === 401 || err.status === 0)) {
+          setStatus("signed-out");
+          return;
+        }
+        setError("The API is not reachable. Start the backend and reload.");
+        setStatus("error");
+      });
   }, []);
+
+  if (status === "checking") return null;
+
+  if (status === "signed-out") {
+    return (
+      <SignIn
+        title="District dashboard sign-in"
+        subtitle="PoshanNetra · पोषण नेत्र"
+      />
+    );
+  }
 
   if (error) {
     return (

@@ -13,6 +13,7 @@
 
 const BASE = "/api";
 const TOKEN_KEY = "poshannetra.token";
+const REFRESH_KEY = "poshannetra.refresh";
 const WORKER_KEY = "poshannetra.worker";
 
 export interface Worker {
@@ -62,9 +63,18 @@ export function getToken(): string | null {
   }
 }
 
-export function setSession(token: string, worker: Worker): void {
+export function getRefreshToken(): string | null {
+  try {
+    return localStorage.getItem(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setSession(token: string, refreshToken: string, worker: Worker): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(REFRESH_KEY, refreshToken);
     localStorage.setItem(WORKER_KEY, JSON.stringify(worker));
   } catch {
     /* non-persistent session is still a usable session */
@@ -83,9 +93,48 @@ export function getWorker(): Worker | null {
 export function clearSession(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(WORKER_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * Exchange the refresh token for a new access token.
+ *
+ * This is what reconciles Section 11's one-hour access token with Section 7's
+ * requirement that the app keep working through days offline. The access token
+ * expires constantly; the worker never notices, because nothing they do -- take
+ * a photograph, record a weight -- consults it. Only syncing does, and syncing
+ * already assumes the network is absent most of the time.
+ *
+ * Returns false when the refresh token itself is gone or rejected, which is the
+ * only case where the worker genuinely has to sign in again.
+ */
+export async function refreshSession(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  try {
+    const response = await fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!response.ok) {
+      // A 401 means the token is spent, revoked or reused. Anything else is a
+      // server or network problem, and the session should survive it -- an
+      // outage must not sign a worker out mid-shift.
+      if (response.status === 401) clearSession();
+      return false;
+    }
+    const body = (await response.json()) as SessionResponse;
+    setSession(body.access_token, body.refresh_token, toWorker(body));
+    return true;
+  } catch {
+    // Network failure. Keep the session; this will be retried when signal
+    // returns.
+    return false;
   }
 }
 
@@ -130,38 +179,96 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 // --- Auth -----------------------------------------------------------------
-// Phase 6 replaces this with real phone OTP. The PWA only needs the token and
-// the worker's scope, both of which keep the same shape, so this call is the
-// single thing that changes here.
+// Phone OTP (Sections 4, 10). Two steps: request a code, then exchange it for
+// an access token and a long-lived refresh token.
 
-export async function signIn(phone: string): Promise<{ token: string; worker: Worker }> {
-  const body = await request<{
-    access_token: string;
-    role: string;
-    awc_code: string | null;
-    district: string | null;
-  }>("/auth/dev/token", { method: "POST", body: JSON.stringify({ phone }) });
+interface SessionResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  refresh_expires_at: string;
+  role: string;
+  name: string;
+  awc_code: string | null;
+  district: string | null;
+}
 
-  const token = body.access_token;
-  // /me is the authoritative source for scope; the token response is a
-  // convenience. Asking the server who we are avoids trusting a decoded claim.
-  const me = await (async () => {
-    const headers = new Headers({ Authorization: `Bearer ${token}` });
-    const response = await fetch(`${BASE}/me`, { headers });
-    if (!response.ok) throw await toApiError(response);
-    return response.json();
-  })();
-
+function toWorker(body: SessionResponse): Worker {
   return {
-    token,
-    worker: {
-      workerId: me.worker_id,
-      name: me.name,
-      role: me.role,
-      awcCode: me.awc_code,
-      district: me.district,
-    },
+    workerId: "",
+    name: body.name,
+    role: body.role,
+    awcCode: body.awc_code,
+    district: body.district,
   };
+}
+
+export interface DemoAccount {
+  phone: string;
+  role: string;
+  name: string;
+  district: string | null;
+}
+
+export interface OtpRequestResult {
+  expiresIn: number;
+  messageHi: string;
+  messageEn: string;
+  /** Only present outside production with the console provider, for demos. */
+  debugCode?: string;
+  /**
+   * Whether the number belongs to staff. Development only -- the API will not
+   * say this in its public response, because that would let anyone enumerate
+   * which numbers belong to Anganwadi workers. But without it a demo hands you
+   * a correct code for an unregistered number and then rejects it.
+   */
+  debugRegistered?: boolean;
+  debugAccounts?: DemoAccount[];
+}
+
+export async function requestOtp(phone: string): Promise<OtpRequestResult> {
+  const body = await request<{
+    expires_in: number;
+    message_hi: string;
+    message_en: string;
+    debug_code?: string;
+    debug_registered?: boolean;
+    debug_accounts?: DemoAccount[];
+  }>("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }) });
+  return {
+    expiresIn: body.expires_in,
+    messageHi: body.message_hi,
+    messageEn: body.message_en,
+    debugCode: body.debug_code,
+    debugRegistered: body.debug_registered,
+    debugAccounts: body.debug_accounts,
+  };
+}
+
+export async function verifyOtp(phone: string, otp: string): Promise<Worker> {
+  const body = await request<SessionResponse>("/auth/otp/verify", {
+    method: "POST",
+    body: JSON.stringify({ phone, otp }),
+  });
+  const worker = toWorker(body);
+  setSession(body.access_token, body.refresh_token, worker);
+  return worker;
+}
+
+export async function signOut(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  if (refreshToken) {
+    try {
+      await fetch(`${BASE}/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch {
+      // Offline sign-out still clears the device. The token expires on its own.
+    }
+  }
+  clearSession();
 }
 
 // --- Reference data -------------------------------------------------------

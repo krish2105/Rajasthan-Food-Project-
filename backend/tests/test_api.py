@@ -51,6 +51,13 @@ def _jpeg(colour=(200, 160, 60)) -> bytes:
 # --------------------------------------------------------------------------
 
 
+async def test_the_dev_token_endpoint_is_gone(client, fixtures) -> None:
+    """Phase 6 removed it. An authentication bypass that exists only outside
+    production is still one environment variable away from being live."""
+    r = await client.post("/auth/dev/token", json={"phone": "5550000001"})
+    assert r.status_code == 404
+
+
 async def test_health_is_open(client) -> None:
     r = await client.get("/health")
     assert r.status_code == 200
@@ -62,29 +69,6 @@ async def test_health_db_reports_policy_count(client, fixtures) -> None:
     assert r.status_code == 200
     # If this is ever 0, RLS silently stopped protecting anything.
     assert r.json()["rls_policies"] > 0
-
-
-async def test_dev_token_issues_a_scoped_token(client, fixtures) -> None:
-    r = await client.post("/auth/dev/token", json={"phone": "5550000001"})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["role"] == "field_worker"
-    assert body["awc_code"] == "TEST-A1"
-    assert body["expires_in"] == 3600  # Section 11: short-lived
-
-
-async def test_dev_token_rejects_unknown_phone(client, fixtures) -> None:
-    assert (await client.post("/auth/dev/token", json={"phone": "0000000000"})).status_code == 404
-
-
-async def test_dev_token_is_absent_in_production(client, fixtures, monkeypatch) -> None:
-    """The only thing between a demo convenience and an auth bypass."""
-    from app.config import get_settings
-
-    settings = get_settings()
-    monkeypatch.setattr(settings, "app_env", "production")
-    r = await client.post("/auth/dev/token", json={"phone": "5550000001"})
-    assert r.status_code == 404
 
 
 @pytest.mark.parametrize("path", ["/me", "/awcs", "/beneficiaries", "/captures"])
@@ -556,3 +540,47 @@ async def test_state_admin_cannot_reprocess(client, fixtures, auth) -> None:
         headers=auth(fixtures["workers"]["5550000020"]),
     )
     assert r.status_code == 403
+
+
+# --------------------------------------------------------------------------
+# Deployment configuration (Phase 7 groundwork)
+# --------------------------------------------------------------------------
+
+
+def test_cors_is_open_in_development_only() -> None:
+    from app.config import Settings
+
+    assert Settings(app_env="development").cors_origins == ["*"]
+
+
+def test_a_deployment_must_name_its_origins() -> None:
+    """This computed to an empty list in production, which would have blocked
+    all three frontends the moment anything was deployed."""
+    from app.config import Settings
+
+    named = Settings(
+        app_env="production",
+        allowed_origins="https://a.vercel.app, https://b.vercel.app",
+    )
+    assert named.cors_origins == ["https://a.vercel.app", "https://b.vercel.app"]
+    assert Settings(app_env="production").cors_origins == []
+
+
+def test_the_demo_environment_is_as_hardened_as_production() -> None:
+    """`demo` exists so a deployed pitch build can carry synthetic data. It must
+    not be a softer security posture -- no debug codes, explicit CORS."""
+    from app.config import Settings
+
+    demo = Settings(app_env="demo")
+    assert demo.is_production is True
+    assert demo.cors_origins == []
+
+
+def test_only_the_demo_environment_may_be_seeded() -> None:
+    """Section 14 step 1 wants a seeded demo; a real production database must
+    never receive synthetic children."""
+    from app.config import Settings
+
+    assert Settings(app_env="demo").seeding_allowed is True
+    assert Settings(app_env="development").seeding_allowed is True
+    assert Settings(app_env="production").seeding_allowed is False

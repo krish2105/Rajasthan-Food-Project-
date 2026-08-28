@@ -15,6 +15,10 @@ dependencies = [
     "python-multipart>=0.0.17",
     "httpx>=0.28",
     "pillow>=11.0",
+    # Production process manager. Render runs one web process; gunicorn
+    # supervises uvicorn workers and restarts one that dies, which uvicorn
+    # alone does not do.
+    "gunicorn>=23.0",
     # Section 4: single abstraction so a Gemini/Groq/future-model swap does not
     # touch business logic.
     "litellm>=1.55",

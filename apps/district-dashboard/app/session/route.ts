@@ -1,35 +1,28 @@
 import { NextResponse } from "next/server";
+import { readTokens } from "@/lib/session";
 
 /**
- * Mints the session token server-side.
+ * Hands the client a usable access token.
  *
- * The dashboard writes follow-ups, so it needs a token in the browser. What it
- * does not need is the dev-token phone number in the bundle, which is why the
- * exchange happens here: the client asks this route for a token and never sees
- * how it was obtained.
+ * This dashboard writes -- an officer records a follow-up and the queue updates
+ * underneath them -- so the browser needs a bearer token. It gets the
+ * short-lived one only; the refresh token stays in an httpOnly cookie and is
+ * never exposed. `middleware.ts` keeps the access cookie fresh, so by the time
+ * this runs it is either valid or the session is genuinely over.
  *
- * Phase 6 replaces the body of this handler with a real OTP exchange. The
- * client contract -- GET /session returns { token } -- does not change.
+ * The trade-off is deliberate and bounded: a script on this page could read a
+ * token that expires within the hour, but not the credential that renews it.
+ *
+ * Phase 6 replaced the development token this route used to mint. The client
+ * contract is unchanged: GET /session returns { token }.
  */
 
 export const dynamic = "force-dynamic";
 
-const API = process.env.API_ORIGIN ?? "http://localhost:8000";
-const OFFICER_PHONE = process.env.OFFICER_PHONE ?? "9999900010";
-
 export async function GET() {
-  const response = await fetch(`${API}/auth/dev/token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ phone: OFFICER_PHONE }),
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return NextResponse.json(
-      { error: "sign-in failed", status: response.status },
-      { status: 502 },
-    );
+  const { access } = await readTokens();
+  if (!access) {
+    return NextResponse.json({ error: "not signed in" }, { status: 401 });
   }
-  const body = (await response.json()) as { access_token: string };
-  return NextResponse.json({ token: body.access_token });
+  return NextResponse.json({ token: access });
 }

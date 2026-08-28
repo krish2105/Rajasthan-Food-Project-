@@ -115,8 +115,12 @@ export function Settings({ onSignedOut }: { onSignedOut: () => void }) {
   };
 
   const signOut = async () => {
+    // Tells the server to revoke this device's refresh token before clearing
+    // locally, so a lost phone stops working immediately rather than in thirty
+    // days. Offline, the local clear still happens and the token expires on
+    // its own.
+    await api.signOut();
     await clearAll();
-    api.clearSession();
     onSignedOut();
   };
 

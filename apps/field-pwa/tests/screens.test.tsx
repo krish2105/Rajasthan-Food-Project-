@@ -89,7 +89,7 @@ const CHILDREN = [
 
 beforeEach(async () => {
   await cacheBeneficiaries(CHILDREN);
-  api.setSession("token", {
+  api.setSession("token", "refresh-token", {
     workerId: "w1", name: "सुनीता", role: "field_worker", awcCode: "A1", district: "Banswara",
   });
   window.matchMedia = vi.fn().mockImplementation((q: string) => ({
@@ -334,7 +334,7 @@ describe("SignIn screen", () => {
 
   it("keeps the button disabled until the number is complete", async () => {
     renderScreen(<SignIn onSignedIn={() => {}} />);
-    const button = screen.getByRole("button", { name: "आगे बढ़ें" });
+    const button = screen.getByRole("button", { name: "कोड भेजें" });
     expect(button).toBeDisabled();
     await userEvent.type(screen.getByLabelText("मोबाइल नंबर"), "999990000");
     expect(button).toBeDisabled();
@@ -352,6 +352,52 @@ describe("SignIn screen", () => {
     expect(
       await screen.findByText("वही नंबर जो आंगनवाड़ी में दर्ज है"),
     ).toBeInTheDocument();
+  });
+
+  it("moves to the code step after requesting one", async () => {
+    vi.spyOn(api, "requestOtp").mockResolvedValue({
+      expiresIn: 300, messageHi: "…", messageEn: "…",
+    });
+    renderScreen(<SignIn onSignedIn={() => {}} />);
+    await userEvent.type(screen.getByLabelText("मोबाइल नंबर"), "9999900001");
+    await userEvent.click(screen.getByRole("button", { name: "कोड भेजें" }));
+    expect(await screen.findByLabelText("6 अंकों का कोड")).toBeInTheDocument();
+  });
+
+  it("offers the code field to the phone's SMS autofill", async () => {
+    // autocomplete="one-time-code" is what lets Android surface the code from
+    // the notification instead of the worker retyping it.
+    vi.spyOn(api, "requestOtp").mockResolvedValue({
+      expiresIn: 300, messageHi: "…", messageEn: "…",
+    });
+    renderScreen(<SignIn onSignedIn={() => {}} />);
+    await userEvent.type(screen.getByLabelText("मोबाइल नंबर"), "9999900001");
+    await userEvent.click(screen.getByRole("button", { name: "कोड भेजें" }));
+    expect(await screen.findByLabelText("6 अंकों का कोड")).toHaveAttribute(
+      "autocomplete",
+      "one-time-code",
+    );
+  });
+
+  it("says a code is wrong without blaming the number", async () => {
+    vi.spyOn(api, "requestOtp").mockResolvedValue({
+      expiresIn: 300, messageHi: "…", messageEn: "…",
+    });
+    vi.spyOn(api, "verifyOtp").mockRejectedValue(new api.ApiError("nope", 401));
+    renderScreen(<SignIn onSignedIn={() => {}} />);
+    await userEvent.type(screen.getByLabelText("मोबाइल नंबर"), "9999900001");
+    await userEvent.click(screen.getByRole("button", { name: "कोड भेजें" }));
+    await userEvent.type(await screen.findByLabelText("6 अंकों का कोड"), "000000");
+    await userEvent.click(screen.getByRole("button", { name: "साइन इन करें" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("यह कोड सही नहीं है");
+  });
+
+  it("explains a throttle rather than showing a generic error", async () => {
+    vi.spyOn(api, "requestOtp").mockRejectedValue(new api.ApiError("slow down", 429));
+    renderScreen(<SignIn onSignedIn={() => {}} />);
+    await userEvent.type(screen.getByLabelText("मोबाइल नंबर"), "9999900001");
+    await userEvent.click(screen.getByRole("button", { name: "कोड भेजें" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/बहुत बार कोशिश हुई/);
   });
 });
 

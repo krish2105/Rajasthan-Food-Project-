@@ -68,8 +68,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // The FastAPI backend from Phases 1-2.
-      "/api": { target: "http://localhost:8000", changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, "") },
+      // The FastAPI backend. In production this same path is rewritten to the
+      // Render service by vercel.json, so the app never knows which it is
+      // talking to.
+      "/api": {
+        target: process.env.API_ORIGIN ?? "http://localhost:8000",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ""),
+      },
     },
   },
   build: {

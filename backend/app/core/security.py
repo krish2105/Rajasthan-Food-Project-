@@ -13,6 +13,7 @@ untouched, which is the whole point of building the scope model first.
 
 from __future__ import annotations
 
+import secrets
 import time
 
 import jwt
@@ -36,6 +37,12 @@ def mint_token(principal: Principal) -> tuple[str, int]:
         "iat": now,
         "exp": now + ttl,
         "aud": "authenticated",
+        # `iat` has one-second resolution, so two tokens minted for the same
+        # worker within a second are byte-identical -- a refresh would appear
+        # to hand back the very token it replaced. A random jti makes every
+        # token distinct and gives future per-token revocation something to
+        # key on.
+        "jti": secrets.token_urlsafe(9),
     }
     token = jwt.encode(payload, settings.supabase_jwt_secret, algorithm=settings.jwt_algorithm)
     return token, ttl

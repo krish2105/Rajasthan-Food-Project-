@@ -3,7 +3,8 @@ import { DistributionChart } from "@/components/DistributionChart";
 import { PrecedentSection } from "@/components/PrecedentSection";
 import { Reveal } from "@/components/Reveal";
 import { TrendChart } from "@/components/TrendChart";
-import { ApiUnavailable, fetchStateReport } from "@/lib/api";
+import { ApiUnavailable, NotSignedIn, fetchStateReport } from "@/lib/api";
+import { SignIn } from "@/components/SignIn";
 import { num, pct } from "@/lib/report";
 import type { Report } from "@/lib/report";
 import { normalCdf } from "@/lib/stats";
@@ -16,6 +17,14 @@ export default async function StateReview() {
   try {
     report = await fetchStateReport();
   } catch (error) {
+    if (error instanceof NotSignedIn) {
+      return (
+        <SignIn
+          title="State review sign-in"
+          subtitle="PoshanNetra · पोषण नेत्र"
+        />
+      );
+    }
     return <Unavailable message={error instanceof ApiUnavailable ? error.message : "unknown"} />;
   }
 
