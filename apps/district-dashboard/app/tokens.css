@@ -1,0 +1,80 @@
+/*
+ * Design tokens for the District Dashboard.
+ *
+ * KEPT BYTE-IDENTICAL to apps/state-admin/app/tokens.css from `:root {`
+ * onwards. A shared workspace package was considered and declined for two
+ * consumers, so tests/tokens-in-sync.test.ts asserts the two files match
+ * rather than leaving "kept in sync by hand" as a hope. Change one, change
+ * both, or the test fails.
+ *
+ * The palette is shared deliberately: an officer moves between this surface
+ * and the state review, and two palettes for one product is a tell. Density is
+ * where the two genuinely differ, and that lives in globals.css -- this is a
+ * tool read at a desk all day, so it fits more rows per screen.
+ */
+
+:root {
+  /* --- Ground ---------------------------------------------------------- */
+  --ink-900: #070a0f;   /* page */
+  --ink-800: #0d121a;   /* section */
+  --ink-700: #141b26;   /* card */
+  --ink-600: #1d2634;   /* raised */
+  --line: #253044;
+  --line-soft: #1a2231;
+
+  /* --- Text ------------------------------------------------------------ */
+  --text: #e9eef6;          /* 16.1:1 on --ink-800 */
+  --text-secondary: #a9b6c9; /* 8.0:1  */
+  --text-muted: #7d8ba1;     /* 4.7:1 -- still past the body-text floor */
+
+  /* --- Subject palette -------------------------------------------------- */
+  --indigo: #5B7CE0;       /* Rajasthani dye */
+  --indigo-deep: #2A3E82;
+  --brass: #C9A227;        /* thali */
+  --brass-soft: #6b5714;
+
+  /* --- Clinical, matching WHO chart conventions ------------------------- */
+  --severe: #E0524F;       /* below -3 SD */
+  --moderate: #E3A13C;     /* -3 to -2 SD */
+  --normal: #47B98A;
+  --reference: #6d7c93;    /* the WHO reference population */
+
+  /* --- Type ------------------------------------------------------------- */
+  /* IBM Plex: drawn for institutional use, and the one major superfamily with
+     a real Devanagari cut. One family across Latin, Devanagari and data means
+     the bilingual headings sit on the same skeleton instead of looking like
+     two documents stapled together. */
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Devanagari", system-ui, sans-serif;
+  --font-deva: "IBM Plex Sans Devanagari", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Fluid scale. clamp() rather than breakpoints so the display sizes
+     interpolate on a projector at an unpredictable resolution. */
+  --step--1: clamp(0.78rem, 0.75rem + 0.15vw, 0.86rem);
+  --step-0: clamp(0.95rem, 0.9rem + 0.2vw, 1.05rem);
+  --step-1: clamp(1.15rem, 1.05rem + 0.4vw, 1.4rem);
+  --step-2: clamp(1.45rem, 1.25rem + 0.9vw, 2rem);
+  --step-3: clamp(1.9rem, 1.5rem + 1.8vw, 3rem);
+  --step-4: clamp(2.6rem, 1.8rem + 3.6vw, 5rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+  --space-9: 7rem;
+
+  --radius: 4px;   /* near-square: institutional, not consumer-app */
+  --radius-lg: 8px;
+
+  --grid-line: rgb(91 124 224 / 7%);
+  --grid-line-strong: rgb(91 124 224 / 13%);
+
+  --measure: 62ch;
+  --shell: 1240px;
+
+  color-scheme: dark;
+}
