@@ -14,12 +14,24 @@ const API = process.env.API_ORIGIN ?? "http://localhost:8000";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const response = await fetch(`${API}/auth/otp/verify`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ phone: body.phone, otp: body.otp }),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API}/auth/otp/verify`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: body.phone, otp: body.otp }),
+      cache: "no-store",
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        detail:
+          "The PoshanNetra API is not reachable. If you are running locally, " +
+          "start it with: cd backend && make serve",
+      },
+      { status: 503 },
+    );
+  }
 
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
